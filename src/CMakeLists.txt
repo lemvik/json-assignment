@@ -1,8 +1,8 @@
 include_directories (.)
 
 add_library (json_library
-  json.h
-  json.cpp
+  json_sa.h
+  json_sa.cpp
   )
 
 add_executable (json main.cpp)
