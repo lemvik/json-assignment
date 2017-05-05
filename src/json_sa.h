@@ -12,9 +12,9 @@
 namespace json {
   namespace simple {
 
-    // Interface for callback given to actual parsing procedure.
-    struct SAJCallback {
-      virtual ~SAJCallback() {}
+    // Interface for tokenizer callback - instance will receive events during parse.
+    struct token_callback {
+      virtual ~token_callback() {}
 
       virtual void json_start() {}
       virtual void json_end() {}
@@ -38,10 +38,8 @@ namespace json {
       virtual bool need_more_json() { return false; }
     };
 
-    // Actual runner function that parses the JSON and invokes callback accordingly
-    void run_saj(const std::string& source, SAJCallback& callback);
-
-    bool literal(std::istream& is, const std::string& literal);
+    // Actual runner function that reads and tokenizes the JSON and invokes callback accordingly
+    void run_tokenizer(const std::string&, token_callback&);
   }
 }
 

@@ -1,4 +1,3 @@
-#define BOOST_TEST_MODULE pingpong_test
 #include <boost/test/unit_test.hpp>
 
 #include "json_sa.h"
@@ -6,14 +5,16 @@
 #include <sstream>
 #include <iostream>
 
+BOOST_AUTO_TEST_SUITE(JSONTokenizer)
+
 enum class stopper { null, object_open, array_end, none };
 
-struct TestCallback : public json::simple::SAJCallback {
+struct test_callback : public json::simple::token_callback {
   stopper flag;
   bool need_more = true;
   std::stringstream buffer;
 
-  TestCallback(stopper f) : flag(f) {}
+  test_callback(stopper f) : flag(f) {}
 
   void json_start() override {
     buffer << "[start]";
@@ -74,57 +75,59 @@ struct TestCallback : public json::simple::SAJCallback {
 };
 
 BOOST_AUTO_TEST_CASE(ReadNull) {
-  TestCallback callback(stopper::null);
+  test_callback callback(stopper::null);
 
-  run_saj("null", callback);
+  run_tokenizer("null", callback);
 
   BOOST_CHECK_EQUAL("[start][null][end]", callback.buffer.str());
 }
 
 BOOST_AUTO_TEST_CASE(ReadGarbled) {
-  TestCallback callback(stopper::object_open);
+  test_callback callback(stopper::object_open);
 
-  run_saj("[,:null}]{", callback);
+  run_tokenizer("[,:null}]{", callback);
 
   BOOST_CHECK_EQUAL("[start][arr::start][comma][colon][null][object::end][arr::end][object::start][end]", callback.buffer.str());
 }
 
 BOOST_AUTO_TEST_CASE(ReadNumber) {
-  TestCallback callback(stopper::array_end);
+  test_callback callback(stopper::array_end);
 
-  run_saj("[0.1234]", callback);
+  run_tokenizer("[0.1234]", callback);
 
   BOOST_CHECK_EQUAL("[start][arr::start][number:0.1234][arr::end][end]", callback.buffer.str());
 }
 
 BOOST_AUTO_TEST_CASE(ReadString) {
-  TestCallback callback(stopper::array_end);
+  test_callback callback(stopper::array_end);
 
-  run_saj(R"%(["ololo-trololo\"somestuff"])%", callback);
+  run_tokenizer(R"%(["ololo-trololo\"somestuff"])%", callback);
 
   BOOST_CHECK_EQUAL(R"%([start][arr::start][string:ololo-trololo\"somestuff][arr::end][end])%", callback.buffer.str());
 }
 
 BOOST_AUTO_TEST_CASE(ReadNumberFail) {
-  TestCallback callback(stopper::array_end);
+  test_callback callback(stopper::array_end);
 
-  run_saj("[0.1234asdf]", callback);
+  run_tokenizer("[0.1234asdf]", callback);
 
   BOOST_CHECK_EQUAL("[start][arr::start][number:0.1234][error]", callback.buffer.str());
 }
 
 BOOST_AUTO_TEST_CASE(ReadArray) {
-  TestCallback callback(stopper::array_end);
+  test_callback callback(stopper::array_end);
 
-  run_saj(R"%([null,   "ololo-trololo\"somestuff", true])%", callback);
+  run_tokenizer(R"%([null,   "ololo-trololo\"somestuff", true])%", callback);
 
   BOOST_CHECK_EQUAL(R"%([start][arr::start][null][comma][string:ololo-trololo\"somestuff][comma][boolean:true][arr::end][end])%", callback.buffer.str());
 }
 
 BOOST_AUTO_TEST_CASE(ReadMangled) {
-  TestCallback callback(stopper::null);
+  test_callback callback(stopper::null);
 
-  run_saj("as;dlkjf;a", callback);
+  run_tokenizer("as;dlkjf;a", callback);
 
   BOOST_CHECK_EQUAL("[start][error]", callback.buffer.str());
 }
+
+BOOST_AUTO_TEST_SUITE_END() 

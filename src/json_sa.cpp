@@ -44,14 +44,18 @@ namespace json {
       std::string::value_type c;
 
       bool escaped = true;
+      std::ios::fmtflags in_flags(is.flags());
+      is >> std::noskipws;
       while (is) {
         is >> c;
         if (!is) {
+          is.flags(in_flags);
           return false;
         }
 
         if (c == '"' && !escaped) {
           target = buffer.str();
+          is.flags(in_flags);
           return true;
         }
 
@@ -59,6 +63,7 @@ namespace json {
         buffer.put(c);
       }
       
+      is.flags(in_flags);
       return !is.fail();
     }
 
@@ -67,7 +72,7 @@ namespace json {
       return !is.fail();
     }
 
-    void run_saj(const std::string& source, SAJCallback& callback) {
+    void run_tokenizer(const std::string& source, token_callback& callback) {
       if (source.empty()) {
         callback.json_error("Cannot parse an empty string, top level value in JSON should be one of 'true', 'false', 'null', string literal, object or an array.");
         return;
@@ -161,10 +166,6 @@ namespace json {
           } 
         }
       }
-
-      std::string rest;
-      getline(is, rest);
-      std::cerr << "Remaining string: " << rest.length() << "\n";
 
       callback.json_end();
     }
