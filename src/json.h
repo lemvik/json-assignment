@@ -1,6 +1,8 @@
 #ifndef _JSON_H_
 #define _JSON_H_
 
+#include <unordered_map>
+#include <vector>
 #include <iterator>
 #include <ostream>
 #include <stdexcept>
@@ -19,11 +21,9 @@ namespace json {
     json_error(const std::string& reason) : std::runtime_error(reason) {}
   };
 
-  class value {
-    value_type type;
-    value(value_type);
-  public:
+  struct value {
     // Constructor and assignment stuff
+    ~value();
     value(const value&);
     value(value&&);
     value& operator=(const value&);
@@ -32,8 +32,20 @@ namespace json {
     // Custom constructors from primitives
     value();                   // Constructs null value
     value(const std::string&); // Constructs string value
-    value(double);             // Constructs numeric value
+    value(const char*);        // Constructs string value (this one is needed thanks to `wonderful` preference of bool-constructor to std::string one).
     explicit value(bool);      // Constructs boolean node
+    value(double);             // Constructs numeric value
+
+    // Following methods are only needed because I was tired fighting
+    // C++ moronic overload resolution rules:
+    // 1. For some reason `val = 0.0` resolves into a call to value(bool) constructor...
+    // 2. Same for `val = "str"`...
+    // 3. Presence of operator=(bool) breaks `val = 0.0` if it's not also overloaded...
+    value& operator=(const std::string&);
+    value& operator=(const char*);        // Overload of char* assignment
+    value& operator=(bool);               // Overload of bool assignment
+    value& operator=(double);             // Overload of number assignment
+    value& operator=(std::nullptr_t);     // Overload of null assignment 
 
     // Comparison operators
     bool operator==(const value&) const;
@@ -73,193 +85,10 @@ namespace json {
     void push(value);
 
     friend void swap(value& lhs, value& rhs);
+    struct value_impl;
+  private:
+    std::unique_ptr<value_impl> payload;
   };
-
-
-  // class json_node {
-  // private:
-  //   json_value_type value_type;
-  // protected:
-  //   json_node(json_value_type _type) : value_type(_type) {}
-  // public:
-  //   virtual ~json_node() {}
-
-  //   virtual std::string& string() = 0;
-  //   virtual double&      number() = 0;
-
-  //   virtual explicit operator bool() const = 0;
-
-  //   json_value_type type() const {
-  //     return value_type;
-  //   }
-
-  //   virtual std::shared_ptr<json_node>& operator[](const std::string& key) = 0;
-  //   virtual std::shared_ptr<json_node>& operator[](unsigned int) = 0;
-  // };
-
-  // class json_string_node : public json_node {
-  //   std::string contents;
-  // public:
-  //   json_string_node(std::string _content) : json_node(json_value_type::string), contents(_content) {}
-
-  //   std::string& string() override {
-  //     return contents;
-  //   }
-
-  //   double& number() override {
-  //     throw json_error("Unable to produce number from string node.");
-  //   }
-
-  //   explicit operator bool() const override {
-  //     return !contents.empty(); // A bit of a cheat here, as in JS "0" string is also 'false'
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](const std::string&) override {
-  //     throw json_error("Unable to apply indexing [key] operator to string node.");
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](unsigned int) override {
-  //     throw json_error("Unable to apply indexing [int] operator to string node.");
-  //   }
-  // };
-
-  // class json_numeric_node : public json_node {
-  //   double contents;
-  // public:
-  //   json_numeric_node(double _contents) : json_node(json_value_type::number), contents(_contents) {}
-
-  //   std::string& string() override {
-  //     throw json_error("Unable to produce string from number node.");
-  //   }
-
-  //   double& number() override {
-  //     return contents;
-  //   }
-
-  //   explicit operator bool() const override {
-  //     return contents != 0;
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](const std::string&) override {
-  //     throw json_error("Unable to apply indexing [key] operator to numeric node.");
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](unsigned int) override {
-  //     throw json_error("Unable to apply indexing [int] operator to numeric node.");
-  //   }
-  // };
-
-  // class json_boolean_node : public json_node {
-  //   bool value;
-  // public:
-  //   explicit json_boolean_node(bool _value) : json_node(json_value_type::boolean), value(_value) {}
-
-  //   std::string& string() override {
-  //     throw json_error("Unable to produce string from boolean node.");
-  //   }
-
-  //   double& number() override {
-  //     throw json_error("Unable to produce number from boolean node.");
-  //   }
-
-  //   explicit operator bool() const override {
-  //     return value;
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](const std::string&) override {
-  //     throw json_error("Unable to apply indexing [key] operator to boolean node.");
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](unsigned int) override {
-  //     throw json_error("Unable to apply indexing [int] operator to boolean node.");
-  //   }
-  // };
-
-  // class json_null_node : public json_node {
-  // public:
-  //   json_null_node() : json_node(json_value_type::null) {}
-
-  //   std::string& string() override {
-  //     throw json_error("Unable to produce string from null node.");
-  //   }
-
-  //   double& number() override {
-  //     throw json_error("Unable to produce number from null node.");
-  //   }
-
-  //   explicit operator bool() const override {
-  //     return false;
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](const std::string&) override {
-  //     throw json_error("Unable to apply indexing [key] operator to null node.");
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](unsigned int) override {
-  //     throw json_error("Unable to apply indexing [int] operator to null node.");
-  //   }
-  // };
-
-  // class json_object_node : public json_node {
-  //   std::unordered_map<std::string, std::shared_ptr<json_node>> childs;
-
-  // public:
-  //   json_object_node() : json_node(json_value_type::object), childs() {}
-   
-  //   std::string& string() override {
-  //     throw json_error("Unable to produce string from object node.");
-  //   }
-
-  //   double& number() override {
-  //     throw json_error("Unable to produce number from object node.");
-  //   }
-
-  //   explicit operator bool() const override {
-  //     return !childs.empty();
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](const std::string& key) override {
-  //     return childs[key];
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](unsigned int) override {
-  //     throw json_error("Unable to apply indexing [int] operator to object node.");
-  //   }
-  // };
-
-  // class json_array_node : public json_node {
-  //   std::vector<std::shared_ptr<json_node>> elements;
-  // public:
-  //   json_array_node() : json_node(json_value_type::array), elements() {}
-
-  //   std::string& string() override {
-  //     throw json_error("Unable to produce string from array node.");
-  //   }
-
-  //   double& number() override {
-  //     throw json_error("Unable to produce number from array node.");
-  //   }
-
-  //   explicit operator bool() const override {
-  //     return !elements.empty();
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](const std::string&) override {
-  //     throw json_error("Unable to apply indexing [key] operator to array node.");
-  //   }
-
-  //   std::shared_ptr<json_node>& operator[](unsigned int index) override {
-  //     if (index < elements.size()) {
-  //       return elements[index];
-  //     }
-
-  //     throw json_error("Unable to apply indexing [int] operator to object node.");
-  //   }
-
-  //   void push(std::shared_ptr<json_node> element) {
-  //     elements.push_back(element);
-  //   }
-  // };
 }
 
 #endif

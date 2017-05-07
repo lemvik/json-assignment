@@ -1,10 +1,10 @@
 include_directories (.)
 
 add_library (json_library
-  json_sa.h
-  json_sa.cpp
-  json_parser.h
-  json_parser.cpp
+  # json_sa.h
+  # json_sa.cpp
+  # json_parser.h
+  # json_parser.cpp
   json.h
   json.cpp
   )

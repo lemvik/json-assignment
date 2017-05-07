@@ -1,0 +1,12 @@
+* Notes on implementation decisions 
+
+** value type as a union-like class
+
+   We would like to do an in-place assignment for values (like obj["foo"] = "var").
+   If I was to use inheritance (base json_value, subclasses like json_numeric_value, json_boolean, etc),
+   I won't be able to replace the item via assignment operator on the return value
+   of [] operator. So union it is.
+
+** copy-initialization issues 
+
+   Currently, `value val = true` will lead to value(double) constructor to be invoked.
