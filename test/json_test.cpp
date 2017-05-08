@@ -27,6 +27,14 @@ BOOST_AUTO_TEST_CASE(Constructors) {
   json::value valD{0.0};
 
   BOOST_CHECK_EQUAL(json::value_type::number, valD.get_type());
+
+  json::value valO(json::value_type::object);
+
+  BOOST_CHECK_EQUAL(json::value_type::object, valO.get_type());
+
+  json::value valA(json::value_type::array);
+
+  BOOST_CHECK_EQUAL(json::value_type::array, valA.get_type());
 }
 
 BOOST_AUTO_TEST_CASE(Assignments) {
@@ -53,6 +61,22 @@ BOOST_AUTO_TEST_CASE(Assignments) {
   val = nullptr;
 
   BOOST_CHECK_EQUAL(json::value_type::null, val.get_type());
+}
+
+BOOST_AUTO_TEST_CASE(ObjectStuff) {
+  json::value object(json::value_type::object);
+
+  object["key"] = "value";
+
+  BOOST_CHECK_EQUAL(json::value_type::string, object["key"].get_type());
+  BOOST_CHECK_EQUAL("value", object["key"].as_string());
+
+  object["keyA"] = json::value(json::value_type::object);
+  object["keyA"]["subkey"] = 1.0;
+
+  BOOST_CHECK_EQUAL(json::value_type::object, object["keyA"].get_type());
+  BOOST_CHECK_EQUAL(json::value_type::number, object["keyA"]["subkey"].get_type());
+  BOOST_CHECK_EQUAL(1.0, object["keyA"]["subkey"].as_number());
 }
 
 BOOST_AUTO_TEST_SUITE_END() 

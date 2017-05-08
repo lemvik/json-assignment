@@ -112,27 +112,66 @@ namespace json {
   class numeric_value : public value::value_impl {
     double val;
   public:
+    numeric_value() : value::value_impl(value_type::number), val(0) {}
     numeric_value(double _val) : value::value_impl(value_type::number), val(_val) {}
+    double as_number() const override {
+      return val;
+    }
   };
 
   class boolean_value : public value::value_impl {
     bool val;
   public:
+    boolean_value() : value::value_impl(value_type::boolean), val(false) {}
     boolean_value(bool _val) : value::value_impl(value_type::boolean), val(_val) {}
+    bool as_boolean() const override {
+      return val;
+    }
   };
 
   class string_value : public value::value_impl {
     std::string val;
   public:
+    string_value() : value::value_impl(value_type::string), val("") {}
     string_value(const std::string& str) : value::value_impl(value_type::string), val(str) {}
+    std::string as_string() const override {
+      return val;
+    }
   };
 
   class object_value : public value::value_impl {
+    std::unordered_map<std::string, std::unique_ptr<value>> children;
+  public:
+    object_value() : value::value_impl(value_type::object), children() {}
+    object_value(const object_value& other) : value::value_impl(value_type::object) {
+      for (auto& el : other.children) {
+        children.insert(std::make_pair(el.first, std::make_unique<value>(*el.second)));
+      }
+    }
 
+    bool has(const std::string& key) const override {
+      return children.find(key) != children.end();
+    }
+
+    value& operator[](const std::string& key) override {
+      auto element_pair = children.emplace(key, std::make_unique<value>());
+      return *(element_pair.first)->second;
+    }
+
+    void remove(const std::string& key) override {
+      children.erase(key);
+    }
   };
 
   class array_value : public value::value_impl {
-
+    std::vector<std::unique_ptr<value>> values;
+  public:
+    array_value() : value::value_impl(value_type::array), values() {}
+    array_value(const array_value& other) : value::value_impl(value_type::array), values() {
+      for (auto& el : other.values) {
+        values.push_back(std::make_unique<value>(*el));
+      }
+    }
   };
 
   std::unique_ptr<value::value_impl> static_dispatch_copy(const value::value_impl& source) {
@@ -177,6 +216,18 @@ namespace json {
   value::value(const char* str) : payload(std::make_unique<string_value>(str)) {}
   value::value(double val) : payload(std::make_unique<numeric_value>(val)) {}
   value::value(bool val) : payload(std::make_unique<boolean_value>(val)) {}
+  value::value(value_type t) : payload() {
+    switch(t) {
+    case value_type::null:    payload = std::make_unique<null_value>(); break;
+    case value_type::boolean: payload = std::make_unique<boolean_value>(); break;
+    case value_type::number:  payload = std::make_unique<numeric_value>(); break;
+    case value_type::string:  payload = std::make_unique<string_value>(); break;
+    case value_type::object:  payload = std::make_unique<object_value>(); break;
+    case value_type::array:   payload = std::make_unique<array_value>(); break;
+    default:
+      throw json_error("Unknown [value_type=" + to_string(t) + "] encountered during construction.");
+    }
+  }
 
   value& value::operator=(const char* str) {        // Overload of char* assignment
     value nval(str);
@@ -221,21 +272,6 @@ namespace json {
   std::string value::as_string() const { return payload->as_string(); }
   double      value::as_number() const { return payload->as_number(); }
   bool        value::as_boolean() const { return payload->as_boolean(); }
-  // value& value::operator=(const std::string& str) {
-  //   value nval(str);
-  //   swap(*this, nval);
-  //   return *this;
-  // }
-  // value& value::operator=(bool val) {
-  //   value nval(val);
-  //   swap(*this, nval);
-  //   return *this;
-  // }
-  // value& value::operator=(double val) {
-  //   value nval(val);
-  //   swap(*this, nval);
-  //   return *this;
-  // }
 
   bool value::has(const std::string& key) const { return payload->has(key); }
   value& value::operator[](const std::string& key) { return (*payload)[key]; }

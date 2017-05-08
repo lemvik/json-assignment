@@ -35,6 +35,7 @@ namespace json {
     value(const char*);        // Constructs string value (this one is needed thanks to `wonderful` preference of bool-constructor to std::string one).
     explicit value(bool);      // Constructs boolean node
     value(double);             // Constructs numeric value
+    value(value_type type);    // Constructs any type of value wanted.
 
     // Following methods are only needed because I was tired fighting
     // C++ moronic overload resolution rules:
