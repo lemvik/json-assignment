@@ -79,4 +79,17 @@ BOOST_AUTO_TEST_CASE(ObjectStuff) {
   BOOST_CHECK_EQUAL(1.0, object["keyA"]["subkey"].as_number());
 }
 
+BOOST_AUTO_TEST_CASE(ArrayStuff) {
+  json::value array(json::value_type::array);
+
+  array.push(1.0);
+  array.push("str");
+  array.push(json::value(true)); // Here for some "reason" compiler prefers non-explicit constructor value(double)
+                                 // Force the fu..er to push boolean.
+
+  BOOST_CHECK_EQUAL(json::value_type::number,  array[0].get_type());
+  BOOST_CHECK_EQUAL(json::value_type::string,  array[1].get_type());
+  BOOST_CHECK_EQUAL(json::value_type::boolean, array[2].get_type());
+}
+
 BOOST_AUTO_TEST_SUITE_END() 

@@ -172,6 +172,19 @@ namespace json {
         values.push_back(std::make_unique<value>(*el));
       }
     }
+
+    virtual value& operator[](size_t index) {
+      if (index < values.size()) {
+        return *(values[index]); // Since the returned value is fixed in memory (pinned by std::unique_ptr) only std::unique_ptr
+                                 // is moved during resize, thus this value should be valid even if `values` vector resizes (as long as it contains
+                                 // the appropriate pointer.
+      }
+      throw json_error("Given [index=" + to_string(index) + "] is out of bounds for the JSON array of [size=" + to_string(values.size()) + "]");
+    }
+
+    virtual void push(value val) {
+      values.push_back(std::make_unique<value>(val));
+    }
   };
 
   std::unique_ptr<value::value_impl> static_dispatch_copy(const value::value_impl& source) {
