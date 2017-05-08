@@ -100,7 +100,7 @@ namespace json {
     virtual value& operator[](size_t) {
       throw json_error("Cannot query value of [type=" + to_string(type) + "] as array.");
     }
-    virtual void push(value) {
+    virtual size_t push(value) {
       throw json_error("Cannot push to value of [type=" + to_string(type) + "] as array.");
     }
   };
@@ -182,8 +182,9 @@ namespace json {
       throw json_error("Given [index=" + to_string(index) + "] is out of bounds for the JSON array of [size=" + to_string(values.size()) + "]");
     }
 
-    virtual void push(value val) {
+    virtual size_t push(value val) {
       values.push_back(std::make_unique<value>(val));
+      return values.size() - 1;
     }
   };
 
@@ -296,7 +297,7 @@ namespace json {
   value::const_object_iterator value::cend() const { return payload->cend(); }
 
   value& value::operator[](size_t index) { return (*payload)[index]; }
-  void value::push(value other) { return payload->push(other); }
+  size_t value::push(value other) { return payload->push(other); }
 
   void swap(value& lhs, value& rhs) {
     using std::swap;

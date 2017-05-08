@@ -7,7 +7,7 @@
 
 namespace json {
   namespace parser {
-    std::unique_ptr<json_node> parse(const std::string&);
+    value parse(const std::string&);
   }
 }
 

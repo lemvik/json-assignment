@@ -83,7 +83,7 @@ namespace json {
 
     // Array-related stuff
     value& operator[](size_t);
-    void push(value);
+    size_t push(value);
 
     friend void swap(value& lhs, value& rhs);
     struct value_impl;
