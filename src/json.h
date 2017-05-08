@@ -71,9 +71,26 @@ namespace json {
     value& operator[](const std::string&);
     void remove(const std::string&);
 
+    // NOTE: references to pairs returned by this iterator are valid ONLY until
+    // next ++ operator. It can be done in other way, but for simplicity it's so for now
+    // Note that references returned in the `second` of the pair are valid for as long
+    // as container contains the referenced value
     using object_entry = std::pair<const std::string&, value&>;
-    class object_iterator : public std::iterator<std::forward_iterator_tag, object_entry> {
+    struct object_iterator : public std::iterator<std::forward_iterator_tag, object_entry> {
+      struct object_iterator_impl;
+      object_iterator(const object_iterator& other);
+      object_iterator(const value& source);
+      ~object_iterator();
+      object_iterator& to_end();
+      object_iterator& operator++();
+      object_iterator operator++(int) {object_iterator res = *this; ++(*this); return res;}
+      bool operator==(object_iterator other) const;
+      bool operator!=(object_iterator other) const;
+      reference operator*() const;
+    private:
+      std::unique_ptr<object_iterator_impl> impl;
     };
+
     object_iterator begin() const;
     object_iterator end() const;
     class const_object_iterator : public std::iterator<std::forward_iterator_tag, const object_entry> {

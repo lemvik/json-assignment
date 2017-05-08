@@ -141,6 +141,7 @@ namespace json {
 
   class object_value : public value::value_impl {
     std::unordered_map<std::string, std::unique_ptr<value>> children;
+    friend value::object_iterator::object_iterator(const value&);
   public:
     object_value() : value::value_impl(value_type::object), children() {}
     object_value(const object_value& other) : value::value_impl(value_type::object) {
@@ -291,8 +292,14 @@ namespace json {
   value& value::operator[](const std::string& key) { return (*payload)[key]; }
   void value::remove(const std::string& key) { return payload->remove(key); }
 
-  value::object_iterator value::begin() const { return payload->begin(); }
-  value::object_iterator value::end() const { return payload->end(); }
+  value::object_iterator value::begin() const {
+    return value::object_iterator(*this);
+  }
+  value::object_iterator value::end() const {
+    value::object_iterator it(*this);
+    it.to_end();
+    return it;
+  }
   value::const_object_iterator value::cbegin() const { return payload->cbegin(); }
   value::const_object_iterator value::cend() const { return payload->cend(); }
 
@@ -303,4 +310,48 @@ namespace json {
     using std::swap;
     swap(lhs.payload, rhs.payload);
   }
+
+  struct value::object_iterator::object_iterator_impl : public std::iterator<std::forward_iterator_tag, value::object_entry> {
+    using source = std::unordered_map<std::string, std::unique_ptr<value>>;
+    using source_iterator = source::const_iterator;
+
+    const source& src;
+    source_iterator iter;
+    std::unique_ptr<value::object_entry> current_reference; // Should be std::optional in C++ 17
+
+    object_iterator_impl(const source& _src) : src(_src), iter(src.begin()) { update_reference(); }
+    object_iterator_impl(const source& _src, source_iterator _iter) : src(_src), iter(_iter) { update_reference(); }
+    object_iterator_impl(const object_iterator_impl& other) : src(other.src), iter(other.iter) { update_reference(); }
+
+    void update_reference() {
+      if (iter != src.end()) {
+        current_reference = std::make_unique<value::object_entry>(iter->first, *(iter->second));
+      }
+    }
+  };
+
+  value::object_iterator::object_iterator(const value::object_iterator& other) : impl(std::make_unique<object_iterator_impl>(*other.impl)) {  }
+  value::object_iterator::object_iterator(const value& source) {
+    if (source.get_type() != json::value_type::object) {
+      throw json_error("Unable to use object_iterator to iterate oven non-object: [type=" + to_string(source.get_type()) + "]");
+    }
+
+    auto& map = static_cast<object_value&>(*source.payload).children;
+    impl = std::make_unique<object_iterator_impl>(map);
+  }
+  value::object_iterator::~object_iterator() = default;
+  value::object_iterator& value::object_iterator::operator++() {
+    ++(impl->iter);
+    impl->update_reference();
+    return *this;
+  }
+  value::object_iterator& value::object_iterator::to_end() {
+    auto last = impl->src.end();
+    const auto& src = impl->src;
+    impl = std::make_unique<object_iterator_impl>(src, last); 
+    return *this;
+  }
+  bool value::object_iterator::operator==(value::object_iterator other) const { return impl->iter == other.impl->iter; }
+  bool value::object_iterator::operator!=(value::object_iterator other) const { return impl->iter != other.impl->iter; }
+  value::object_iterator::reference value::object_iterator::operator*() const { return *(impl->current_reference); }
 }

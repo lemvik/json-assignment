@@ -2,8 +2,25 @@
 
 #include "json.h"
 #include <string>
+#include <ostream>
 #include <sstream>
 #include <iostream>
+#include <unordered_set>
+
+// Following is thanks to this explanation: http://stackoverflow.com/a/18817428
+struct boost_compatible_unordered_set : public std::unordered_set<std::string> {
+  boost_compatible_unordered_set(std::initializer_list<std::string> lst) : std::unordered_set<std::string>(lst) {}
+};
+
+std::ostream& operator<<(std::ostream& os, const boost_compatible_unordered_set& set) {
+  os << "set:[";
+  for (auto& el : set) {
+    os << el;
+  }
+  os << "]";
+  return os;
+}
+
 
 BOOST_AUTO_TEST_SUITE(JsonAPItest)
 
@@ -77,6 +94,50 @@ BOOST_AUTO_TEST_CASE(ObjectStuff) {
   BOOST_CHECK_EQUAL(json::value_type::object, object["keyA"].get_type());
   BOOST_CHECK_EQUAL(json::value_type::number, object["keyA"]["subkey"].get_type());
   BOOST_CHECK_EQUAL(1.0, object["keyA"]["subkey"].as_number());
+}
+
+
+BOOST_AUTO_TEST_CASE(ObjectIteration) {
+  json::value object(json::value_type::object);
+
+  object["keyA"] = "valueA";
+  object["keyB"] = "valueB";
+  object["keyC"] = "valueC";
+
+  boost_compatible_unordered_set expected{std::string("[keyA:valueA]"), std::string("[keyB:valueB]"), std::string("[keyC:valueC]")};
+  boost_compatible_unordered_set actual{};
+
+  for (auto it = object.begin(); it != object.end(); ++it) {
+    std::stringstream ss;
+    ss << "[" << (*it).first << ":" << (*it).second.as_string() << "]";
+    actual.insert(ss.str());
+  }
+
+  BOOST_CHECK_EQUAL(expected, actual);
+
+  actual.clear();
+
+  for (auto& p : object) {
+    std::stringstream ss;
+    ss << "[" << p.first << ":" << p.second.as_string() << "]";
+    actual.insert(ss.str());
+  }
+
+  BOOST_CHECK_EQUAL(expected, actual);
+
+  for (auto& p : object) {
+    if (p.first == "keyA") {
+      p.second = 1.0;
+    } else if (p.first == "keyB") {
+      p.second = true; 
+    } else if (p.first == "keyC") {
+      p.second = "last";
+    }
+  }
+
+  BOOST_CHECK_EQUAL(1.0, object["keyA"].as_number());
+  BOOST_CHECK_EQUAL(true, object["keyB"].as_boolean());
+  BOOST_CHECK_EQUAL("last", object["keyC"].as_string());
 }
 
 BOOST_AUTO_TEST_CASE(ArrayStuff) {
