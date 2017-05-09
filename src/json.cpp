@@ -89,12 +89,6 @@ namespace json {
     virtual value::object_iterator end() const {
       throw json_error("Cannot iterate over value of [type=" + to_string(type) + "] as object.");
     }
-    virtual value::const_object_iterator cbegin() const {
-      throw json_error("Cannot iterate over value of [type=" + to_string(type) + "] as object.");
-    }
-    virtual value::const_object_iterator cend() const {
-      throw json_error("Cannot iterate over value of [type=" + to_string(type) + "] as object.");
-    }
 
     // Array-related stuff
     virtual value& operator[](size_t) {
@@ -166,6 +160,7 @@ namespace json {
 
   class array_value : public value::value_impl {
     std::vector<std::unique_ptr<value>> values;
+    friend value::array_iterator::array_iterator(value&);
   public:
     array_value() : value::value_impl(value_type::array), values() {}
     array_value(const array_value& other) : value::value_impl(value_type::array), values() {
@@ -296,12 +291,14 @@ namespace json {
     return value::object_iterator(*this);
   }
   value::object_iterator value::end() const {
-    value::object_iterator it(*this);
-    it.to_end();
-    return it;
+    return value::object_iterator(*this).to_end();
   }
-  value::const_object_iterator value::cbegin() const { return payload->cbegin(); }
-  value::const_object_iterator value::cend() const { return payload->cend(); }
+  value::array_iterator value::abegin() {
+    return value::array_iterator(*this);
+  }
+  value::array_iterator value::aend() {
+    return value::array_iterator(*this).to_end();
+  }
 
   value& value::operator[](size_t index) { return (*payload)[index]; }
   size_t value::push(value other) { return payload->push(other); }
@@ -354,4 +351,37 @@ namespace json {
   bool value::object_iterator::operator==(value::object_iterator other) const { return impl->iter == other.impl->iter; }
   bool value::object_iterator::operator!=(value::object_iterator other) const { return impl->iter != other.impl->iter; }
   value::object_iterator::reference value::object_iterator::operator*() const { return *(impl->current_reference); }
+
+  struct value::array_iterator::array_iterator_impl {
+    using source = std::vector<std::unique_ptr<value>>;
+    using iterator = std::vector<std::unique_ptr<value>>::iterator;
+    
+    source& src;
+    iterator iter;
+
+    array_iterator_impl(source& _src, iterator _iter) : src(_src), iter(_iter) {}
+    array_iterator_impl(const array_iterator_impl& other) : src(other.src), iter(other.iter) {}
+  };
+
+  value::array_iterator::array_iterator(const array_iterator& other) : impl(std::make_unique<array_iterator_impl>(*other.impl)) {}
+  value::array_iterator::array_iterator(value& source) {
+    if (source.get_type() != json::value_type::array) {
+      throw json_error("Unable to construct array iterator from value of [type=" + to_string(source.get_type()) + "]");
+    }
+    auto& vector = static_cast<array_value&>(*source.payload).values;
+    impl = std::make_unique<array_iterator_impl>(vector, vector.begin());
+  }
+  value::array_iterator::~array_iterator() = default; 
+  value::array_iterator& value::array_iterator::to_end() {
+    auto& vec = impl->src;
+    auto iter = vec.end();
+    impl = std::make_unique<array_iterator_impl>(vec, iter);
+    return *this;
+  }
+  value::array_iterator& value::array_iterator::operator++() { ++(impl->iter); return *this; }
+  bool value::array_iterator::operator==(value::array_iterator other) const { return impl->iter == other.impl->iter; }
+  bool value::array_iterator::operator!=(value::array_iterator other) const { return impl->iter != other.impl->iter; }
+  value::array_iterator::reference value::array_iterator::operator*() const {
+    return *(*(impl->iter)); // Since we want to return reference - two dereferences.
+  }
 }

@@ -4,10 +4,12 @@
 #include "json.h"
 #include <memory>
 #include <string>
+#include <istream>
 
 namespace json {
   namespace parser {
     value parse(const std::string&);
+    value parse(std::istream&);
   }
 }
 

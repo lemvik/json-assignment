@@ -88,12 +88,27 @@ BOOST_AUTO_TEST_CASE(ObjectStuff) {
   BOOST_CHECK_EQUAL(json::value_type::string, object["key"].get_type());
   BOOST_CHECK_EQUAL("value", object["key"].as_string());
 
+  // Test copy-construction.
+  {
+    json::value another_object = object;
+    BOOST_CHECK(&another_object != &object);
+    BOOST_CHECK_EQUAL(another_object["key"].as_string(), object["key"].as_string());
+    BOOST_CHECK(&(another_object["key"]) != &(object["key"]));
+  }
+
+  // Check that we didn't break anything.
+  BOOST_CHECK_EQUAL(json::value_type::string, object["key"].get_type());
+  BOOST_CHECK_EQUAL("value", object["key"].as_string());
+
   object["keyA"] = json::value(json::value_type::object);
   object["keyA"]["subkey"] = 1.0;
 
   BOOST_CHECK_EQUAL(json::value_type::object, object["keyA"].get_type());
   BOOST_CHECK_EQUAL(json::value_type::number, object["keyA"]["subkey"].get_type());
   BOOST_CHECK_EQUAL(1.0, object["keyA"]["subkey"].as_number());
+
+
+
 }
 
 
@@ -151,6 +166,22 @@ BOOST_AUTO_TEST_CASE(ArrayStuff) {
   BOOST_CHECK_EQUAL(json::value_type::number,  array[0].get_type());
   BOOST_CHECK_EQUAL(json::value_type::string,  array[1].get_type());
   BOOST_CHECK_EQUAL(json::value_type::boolean, array[2].get_type());
+}
+
+BOOST_AUTO_TEST_CASE(ArrayIteration) {
+  json::value object(json::value_type::array);
+
+  object.push("valueA");
+  object.push("valueB");
+  object.push("valueC");
+
+  std::stringstream ss;
+
+  for (auto it = object.abegin(); it != object.aend(); ++it) {
+    ss << "[" << (*it).as_string() << "]";
+  }
+
+  BOOST_CHECK_EQUAL("[valueA][valueB][valueC]", ss.str());
 }
 
 BOOST_AUTO_TEST_SUITE_END() 

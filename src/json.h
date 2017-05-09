@@ -90,13 +90,25 @@ namespace json {
     private:
       std::unique_ptr<object_iterator_impl> impl;
     };
-
     object_iterator begin() const;
     object_iterator end() const;
-    class const_object_iterator : public std::iterator<std::forward_iterator_tag, const object_entry> {
+
+    struct array_iterator : public std::iterator<std::forward_iterator_tag, value> {
+      struct array_iterator_impl;
+      array_iterator(const array_iterator& other);
+      array_iterator(value& source);
+      ~array_iterator();
+      array_iterator& to_end();
+      array_iterator& operator++();
+      array_iterator operator++(int) {array_iterator res = *this; ++(*this); return res;}
+      bool operator==(array_iterator other) const;
+      bool operator!=(array_iterator other) const;
+      reference operator*() const;
+    private:
+      std::unique_ptr<array_iterator_impl> impl;
     };
-    const_object_iterator cbegin() const;
-    const_object_iterator cend() const;
+    array_iterator abegin();
+    array_iterator aend();
 
     // Array-related stuff
     value& operator[](size_t);

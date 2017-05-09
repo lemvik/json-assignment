@@ -78,9 +78,13 @@ namespace json {
         return;
       }
 
-      callback.json_start();
-
       std::stringstream is(source);
+
+      run_tokenizer(is, callback);
+    }
+
+    void run_tokenizer(std::istream& is, token_callback& callback) {
+      callback.json_start();
 
       while (is && callback.need_more_json()) {
         is >> std::ws;
@@ -151,7 +155,7 @@ namespace json {
           }
         }
         default:
-          if (std::isdigit(c)) {
+          if (c == '-' || std::isdigit(c)) {
             double value;
             if (read_number(is, value)) {
               callback.json_number(value);

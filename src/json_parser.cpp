@@ -245,5 +245,11 @@ namespace json {
       run_tokenizer(source, callback);
       return callback.result();
     }
+
+    json::value parse(std::istream& source) {
+      builder_callback callback;
+      run_tokenizer(source, callback);
+      return callback.result();
+    }
   }
 }

@@ -40,6 +40,7 @@ namespace json {
 
     // Actual runner function that reads and tokenizes the JSON and invokes callback accordingly
     void run_tokenizer(const std::string&, token_callback&);
+    void run_tokenizer(std::istream&, token_callback&);
   }
 }
 
