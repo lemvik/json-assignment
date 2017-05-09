@@ -106,9 +106,6 @@ BOOST_AUTO_TEST_CASE(ObjectStuff) {
   BOOST_CHECK_EQUAL(json::value_type::object, object["keyA"].get_type());
   BOOST_CHECK_EQUAL(json::value_type::number, object["keyA"]["subkey"].get_type());
   BOOST_CHECK_EQUAL(1.0, object["keyA"]["subkey"].as_number());
-
-
-
 }
 
 
