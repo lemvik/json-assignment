@@ -1,0 +1,28 @@
+Dr. Memory version 1.11.0 build 2 built on Aug 29 2016 02:41:18
+Dr. Memory results for pid 4180: "json.exe"
+Application cmdline: "src\json.exe ..\generated.json"
+Recorded 115 suppression(s) from default C:\Program Files (x86)\Dr. Memory\bin64\suppress-default.txt
+
+===========================================================================
+FINAL SUMMARY:
+
+DUPLICATE ERROR COUNTS:
+
+SUPPRESSIONS USED:
+
+NO ERRORS FOUND:
+      0 unique,     0 total unaddressable access(es)
+      0 unique,     0 total invalid heap argument(s)
+      0 unique,     0 total GDI usage error(s)
+      0 unique,     0 total handle leak(s)
+      0 unique,     0 total warning(s)
+      0 unique,     0 total,      0 byte(s) of leak(s)
+      0 unique,     0 total,      0 byte(s) of possible leak(s)
+ERRORS IGNORED:
+      2 potential error(s) (suspected false positives)
+         (details: C:\Users\Viktor.Lemeshev\AppData\Roaming\Dr. Memory\DrMemory-json.exe.4180.000\potential_errors.txt)
+      1 potential leak(s) (suspected false positives)
+         (details: C:\Users\Viktor.Lemeshev\AppData\Roaming\Dr. Memory\DrMemory-json.exe.4180.000\potential_errors.txt)
+     10 unique,    11 total,   5367 byte(s) of still-reachable allocation(s)
+         (re-run with "-show_reachable" for details)
+Details: C:\Users\Viktor.Lemeshev\AppData\Roaming\Dr. Memory\DrMemory-json.exe.4180.000\results.txt
