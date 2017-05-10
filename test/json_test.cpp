@@ -29,19 +29,19 @@ BOOST_AUTO_TEST_CASE(Constructors) {
 
   BOOST_CHECK_EQUAL(json::value_type::null, val.get_type());
 
-  json::value valS{"str"};
+  json::value valS("str");
 
   BOOST_CHECK_EQUAL(json::value_type::string, valS.get_type());
 
-  json::value valT{true};
+  json::value valT(true);
 
   BOOST_CHECK_EQUAL(json::value_type::boolean, valT.get_type());
 
-  json::value valF{false};
+  json::value valF(false);
 
   BOOST_CHECK_EQUAL(json::value_type::boolean, valF.get_type());
 
-  json::value valD{0.0};
+  json::value valD(0.0);
 
   BOOST_CHECK_EQUAL(json::value_type::number, valD.get_type());
 
@@ -74,6 +74,7 @@ BOOST_AUTO_TEST_CASE(Assignments) {
   val = 0.0;
 
   BOOST_CHECK_EQUAL(json::value_type::number, val.get_type());
+  BOOST_CHECK_EQUAL("0", val.serialize());
 
   val = nullptr;
 
@@ -94,6 +95,8 @@ BOOST_AUTO_TEST_CASE(ObjectStuff) {
     BOOST_CHECK(&another_object != &object);
     BOOST_CHECK_EQUAL(another_object["key"].as_string(), object["key"].as_string());
     BOOST_CHECK(&(another_object["key"]) != &(object["key"]));
+    another_object["key"] = "another_value";
+    BOOST_CHECK_EQUAL("another_value", another_object["key"].as_string());
   }
 
   // Check that we didn't break anything.
@@ -152,6 +155,15 @@ BOOST_AUTO_TEST_CASE(ObjectIteration) {
   BOOST_CHECK_EQUAL("last", object["keyC"].as_string());
 }
 
+BOOST_AUTO_TEST_CASE(ObjectLiteral) {
+  json::value object{{"keyA", 1.0}, {"keyB", true}, {"keyC", nullptr}};
+
+  BOOST_CHECK_EQUAL(1.0, object["keyA"].as_number());
+  BOOST_CHECK_EQUAL(true, object["keyB"].as_boolean());
+  BOOST_CHECK(object["keyC"] == nullptr);
+}
+
+
 BOOST_AUTO_TEST_CASE(ArrayStuff) {
   json::value array(json::value_type::array);
 
@@ -180,5 +192,13 @@ BOOST_AUTO_TEST_CASE(ArrayIteration) {
 
   BOOST_CHECK_EQUAL("[valueA][valueB][valueC]", ss.str());
 }
+
+// BOOST_AUTO_TEST_CASE(ArrayLiteral) {
+//   json::value object{"valueA", 1.0, false};
+
+//   BOOST_CHECK_EQUAL("valueA", object[0].as_string());
+//   BOOST_CHECK_EQUAL(1.0, object[1].as_number());
+//   BOOST_CHECK_EQUAL(false, object[2].as_boolean());
+// }
 
 BOOST_AUTO_TEST_SUITE_END() 

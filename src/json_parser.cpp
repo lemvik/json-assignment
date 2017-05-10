@@ -50,7 +50,7 @@ namespace json {
       void json_string(const std::string& str) override {
         if (expects(next_token::value)) {
           context.pop();
-          attach(value{str});
+          attach(value(str));
           value_read();
         } else if (expects(next_token::key)) {
           context.pop();
@@ -64,7 +64,7 @@ namespace json {
       void json_number(double num) override {
         if (expects(next_token::value)) {
           context.pop();
-          attach(value{num});
+          attach(value(num));
           value_read();
         } else {
           fail("[double:" + to_string(num) + "]");
@@ -74,7 +74,7 @@ namespace json {
       void json_boolean(bool flag) override {
         if (expects(next_token::value)) {
           context.pop();
-          attach(value{flag});
+          attach(value(flag));
           value_read();
         } else {
           fail("[boolean:" + to_string(flag ? "true" : "false") + "]");
@@ -84,7 +84,7 @@ namespace json {
       void json_null() override {
         if (expects(next_token::value)) {
           context.pop();
-          attach(value{});
+          attach(value());
           value_read();
         } else {
           fail("[null]");
@@ -115,7 +115,7 @@ namespace json {
 
       void json_array_starts() override {
         context.push(next_token::value);
-        objects_being_built.push(attach(value{value_type::array}));
+        objects_being_built.push(attach(value(value_type::array)));
       }
 
       void json_array_ends() override {
@@ -131,7 +131,7 @@ namespace json {
 
       void json_object_starts() override {
         context.push(next_token::key);
-        objects_being_built.push(attach(value{value_type::object}));
+        objects_being_built.push(attach(value(value_type::object)));
       }
 
       void json_object_ends() override {

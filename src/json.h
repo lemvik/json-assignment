@@ -30,12 +30,17 @@ namespace json {
     value& operator=(value&&);
 
     // Custom constructors from primitives
-    value();                   // Constructs null value
-    value(const std::string&); // Constructs string value
-    value(const char*);        // Constructs string value (this one is needed thanks to `wonderful` preference of bool-constructor to std::string one).
-    explicit value(bool);      // Constructs boolean node
-    value(double);             // Constructs numeric value
-    value(value_type type);    // Constructs any type of value wanted.
+    template<typename T>
+    value(T) = delete;
+    value();                                                     // Constructs default null value
+    value(std::nullptr_t);                                       // Constructs null value explicitly
+    value(const std::string&);                                   // Constructs string value
+    value(const char*);                                          // Constructs string value (this one is needed thanks to `wonderful` preference of bool-constructor to std::string one).
+    value(bool);                                                 // Constructs boolean node
+    value(double);                                               // Constructs numeric value
+    value(value_type type);                                      // Constructs any type of value wanted.
+    //value(std::initializer_list<value>);                         // Constructs an array
+    value(std::initializer_list<std::pair<std::string, value>>); // Constructs an object 
 
     // Following methods are only needed because I was tired fighting
     // C++ moronic overload resolution rules:
@@ -51,6 +56,8 @@ namespace json {
     // Comparison operators
     bool operator==(const value&) const;
     bool operator!=(const value&) const;
+    bool operator==(std::nullptr_t) const;
+    bool operator!=(std::nullptr_t) const;
 
     // Type checking
     bool is_null() const;
@@ -65,6 +72,9 @@ namespace json {
     std::string as_string() const;
     double      as_number() const;
     bool        as_boolean() const;
+
+    // Serialization
+    std::string serialize() const;
 
     // Object-related stuff
     bool has(const std::string&) const;
@@ -114,11 +124,16 @@ namespace json {
     value& operator[](size_t);
     size_t push(value);
 
+    size_t size() const; // For object and arrays returns the number of entries.
+    bool empty() const;  // Returns true if object/array is empty 
+
     friend void swap(value& lhs, value& rhs);
     struct value_impl;
   private:
     std::unique_ptr<value_impl> payload;
   };
+
+  std::ostream& operator<<(std::ostream&, const value&);
 }
 
 #endif

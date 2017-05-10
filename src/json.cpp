@@ -1,6 +1,7 @@
 #include "json.h"
 
 #include <sstream>
+#include <iomanip>
 #include <cassert>
 
 namespace json {
@@ -9,6 +10,32 @@ namespace json {
     std::stringstream ss;
     ss << obj;
     return ss.str();
+  }
+
+  // This code is "borrowed" from here: http://stackoverflow.com/a/33799784
+  std::string escape(std::string str) {
+    std::ostringstream o;
+    o << '"';
+    for (const auto& c : str) {
+        switch (c) {
+        case '"': o << "\\\""; break;
+        case '\\': o << "\\\\"; break;
+        case '\b': o << "\\b"; break;
+        case '\f': o << "\\f"; break;
+        case '\n': o << "\\n"; break;
+        case '\r': o << "\\r"; break;
+        case '\t': o << "\\t"; break;
+        default:
+            if ('\x00' <= c && c <= '\x1f') {
+                o << "\\u"
+                  << std::hex << std::setw(4) << std::setfill('0') << (int)c;
+            } else {
+                o << c;
+            }
+        }
+    }
+    o << '"';
+    return o.str();
   }
 
   std::ostream& operator<<(std::ostream& os, const value_type& val) {
@@ -72,6 +99,10 @@ namespace json {
       throw json_error("Cannot return value of [type=" + to_string(type) + "] as boolean.");
     }
 
+    virtual std::string serialize() const {
+      throw json_error("Cannot serialize base json node.");
+    }
+
     // Object-related stuff
     virtual bool has(const std::string&) const {
       throw json_error("Cannot query value of [type=" + to_string(type) + "] as object.");
@@ -97,10 +128,21 @@ namespace json {
     virtual size_t push(value) {
       throw json_error("Cannot push to value of [type=" + to_string(type) + "] as array.");
     }
+
+    virtual size_t size() const {
+      throw json_error("Cannot query size of value of [type=" + to_string(type) + "].");
+    }
+
+    virtual bool empty() const {
+      throw json_error("Cannot query emptiness of value of [type=" + to_string(type) + "].");
+    }
   };
 
   struct null_value : public value::value_impl {
     null_value() : value::value_impl(value_type::null) {}
+    std::string serialize() const override {
+      return "null";
+    }
   };
 
   class numeric_value : public value::value_impl {
@@ -110,6 +152,9 @@ namespace json {
     numeric_value(double _val) : value::value_impl(value_type::number), val(_val) {}
     double as_number() const override {
       return val;
+    }
+    std::string serialize() const override {
+      return to_string(val);
     }
   };
 
@@ -121,6 +166,9 @@ namespace json {
     bool as_boolean() const override {
       return val;
     }
+    std::string serialize() const override {
+      return val ? "true" : "false";
+    }
   };
 
   class string_value : public value::value_impl {
@@ -130,6 +178,9 @@ namespace json {
     string_value(const std::string& str) : value::value_impl(value_type::string), val(str) {}
     std::string as_string() const override {
       return val;
+    }
+    std::string serialize() const override {
+      return escape(val);
     }
   };
 
@@ -156,6 +207,30 @@ namespace json {
     void remove(const std::string& key) override {
       children.erase(key);
     }
+
+    size_t size() const override {
+      return children.size();
+    }
+
+    bool empty() const override {
+      return children.empty();
+    }
+    
+    std::string serialize() const override {
+      std::stringstream ss;
+      auto sep = "";
+
+      ss << "{";
+
+      for (auto& el : children) {
+        ss << sep << '"' << el.first << '"' << ":" << el.second->serialize();
+        sep = ",";
+      }
+      
+      ss << "}";
+
+      return ss.str();
+    }
   };
 
   class array_value : public value::value_impl {
@@ -169,7 +244,7 @@ namespace json {
       }
     }
 
-    virtual value& operator[](size_t index) {
+    value& operator[](size_t index) override {
       if (index < values.size()) {
         return *(values[index]); // Since the returned value is fixed in memory (pinned by std::unique_ptr) only std::unique_ptr
                                  // is moved during resize, thus this value should be valid even if `values` vector resizes (as long as it contains
@@ -178,9 +253,33 @@ namespace json {
       throw json_error("Given [index=" + to_string(index) + "] is out of bounds for the JSON array of [size=" + to_string(values.size()) + "]");
     }
 
-    virtual size_t push(value val) {
+    size_t push(value val) override {
       values.push_back(std::make_unique<value>(val));
       return values.size() - 1;
+    }
+
+    size_t size() const override {
+      return values.size();
+    }
+
+    bool empty() const override {
+      return values.empty();
+    }
+
+    std::string serialize() const override {
+      std::stringstream ss;
+      auto sep = "";
+
+      ss << "[";
+
+      for (auto& el : values) {
+        ss << sep << el->serialize();
+        sep = ",";
+      }
+      
+      ss << "]";
+
+      return ss.str();
     }
   };
 
@@ -222,10 +321,22 @@ namespace json {
   }
 
   value::value() : payload(std::make_unique<null_value>()) {}
+  value::value(std::nullptr_t) : payload(std::make_unique<null_value>()) {}
   value::value(const std::string& str) : payload(std::make_unique<string_value>(str)) {}
   value::value(const char* str) : payload(std::make_unique<string_value>(str)) {}
   value::value(double val) : payload(std::make_unique<numeric_value>(val)) {}
   value::value(bool val) : payload(std::make_unique<boolean_value>(val)) {}
+  // value::value(std::initializer_list<value> vals) : payload(std::make_unique<array_value>()) {
+  //   for (auto el : vals) {
+  //     payload->push(el);
+  //   }
+  // }
+  value::value(std::initializer_list<std::pair<std::string, value>> pairs) : payload(std::make_unique<object_value>()) {
+    for (auto el : pairs) {
+      (*payload)[el.first] = el.second;
+    }
+  }
+
   value::value(value_type t) : payload() {
     switch(t) {
     case value_type::null:    payload = std::make_unique<null_value>(); break;
@@ -246,13 +357,13 @@ namespace json {
   }
 
   value& value::operator=(bool a) {               // Overload of bool assignment
-    value nval{a};
+    value nval(a);
     swap(*this, nval);
     return *this;
   }
 
   value& value::operator=(double d) {             // Overload of number assignment
-    value nval{d};
+    value nval(d);
     swap(*this, nval);
     return *this;
   }
@@ -271,6 +382,13 @@ namespace json {
     return *payload != *other.payload;
   }
 
+  bool value::operator==(std::nullptr_t) const {
+    return get_type() == value_type::null;
+  }
+  bool value::operator!=(std::nullptr_t) const {
+    return get_type() != value_type::null;
+  }
+
   bool value::is_null() const { return payload->is_null(); }
   bool value::is_string() const { return payload->is_string(); }
   bool value::is_number() const { return payload->is_number(); }
@@ -282,6 +400,8 @@ namespace json {
   std::string value::as_string() const { return payload->as_string(); }
   double      value::as_number() const { return payload->as_number(); }
   bool        value::as_boolean() const { return payload->as_boolean(); }
+
+  std::string value::serialize() const { return payload->serialize(); }
 
   bool value::has(const std::string& key) const { return payload->has(key); }
   value& value::operator[](const std::string& key) { return (*payload)[key]; }
@@ -302,6 +422,9 @@ namespace json {
 
   value& value::operator[](size_t index) { return (*payload)[index]; }
   size_t value::push(value other) { return payload->push(other); }
+
+  size_t value::size() const { return payload->size(); }
+  bool value::empty() const { return payload->empty(); }
 
   void swap(value& lhs, value& rhs) {
     using std::swap;
@@ -383,5 +506,9 @@ namespace json {
   bool value::array_iterator::operator!=(value::array_iterator other) const { return impl->iter != other.impl->iter; }
   value::array_iterator::reference value::array_iterator::operator*() const {
     return *(*(impl->iter)); // Since we want to return reference - two dereferences.
+  }
+
+  std::ostream& operator<<(std::ostream& os, const value& val) {
+    return os << val.serialize();
   }
 }
