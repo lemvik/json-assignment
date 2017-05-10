@@ -38,6 +38,10 @@ namespace json {
     value(const char*);                                          // Constructs string value (this one is needed thanks to `wonderful` preference of bool-constructor to std::string one).
     value(bool);                                                 // Constructs boolean node
     value(double);                                               // Constructs numeric value
+    value(float v) : value((double)v) {}                         // Constructs numeric value
+    value(short v) : value((double)v) {}                         // Constructs numeric value
+    value(int v) : value((double)v) {}                           // Constructs numeric value
+    value(long v) : value((double)v) {}                          // Constructs numeric value
     value(value_type type);                                      // Constructs any type of value wanted.
     //value(std::initializer_list<value>);                         // Constructs an array
     value(std::initializer_list<std::pair<std::string, value>>); // Constructs an object 
@@ -123,6 +127,7 @@ namespace json {
     // Array-related stuff
     value& operator[](size_t);
     size_t push(value);
+    size_t remove(size_t);
 
     size_t size() const; // For object and arrays returns the number of entries.
     bool empty() const;  // Returns true if object/array is empty 

@@ -45,6 +45,10 @@ BOOST_AUTO_TEST_CASE(Constructors) {
 
   BOOST_CHECK_EQUAL(json::value_type::number, valD.get_type());
 
+  json::value valShort((short)1);
+
+  BOOST_CHECK_EQUAL(json::value_type::number, valShort.get_type());
+
   json::value valO(json::value_type::object);
 
   BOOST_CHECK_EQUAL(json::value_type::object, valO.get_type());
@@ -109,6 +113,12 @@ BOOST_AUTO_TEST_CASE(ObjectStuff) {
   BOOST_CHECK_EQUAL(json::value_type::object, object["keyA"].get_type());
   BOOST_CHECK_EQUAL(json::value_type::number, object["keyA"]["subkey"].get_type());
   BOOST_CHECK_EQUAL(1.0, object["keyA"]["subkey"].as_number());
+
+  BOOST_CHECK_EQUAL(2, object.size());
+
+  object.remove("keyA");
+  BOOST_CHECK(!object.has("keyA"));
+  BOOST_CHECK_EQUAL(1, object.size());
 }
 
 
@@ -169,12 +179,16 @@ BOOST_AUTO_TEST_CASE(ArrayStuff) {
 
   array.push(1.0);
   array.push("str");
-  array.push(json::value(true)); // Here for some "reason" compiler prefers non-explicit constructor value(double)
-                                 // Force the fu..er to push boolean.
+  array.push(true); 
 
   BOOST_CHECK_EQUAL(json::value_type::number,  array[0].get_type());
   BOOST_CHECK_EQUAL(json::value_type::string,  array[1].get_type());
   BOOST_CHECK_EQUAL(json::value_type::boolean, array[2].get_type());
+
+  array.remove(0);
+  BOOST_CHECK_EQUAL(2, array.size());
+  BOOST_CHECK_EQUAL(json::value_type::string,  array[0].get_type());
+  BOOST_CHECK_EQUAL(json::value_type::boolean, array[1].get_type());
 }
 
 BOOST_AUTO_TEST_CASE(ArrayIteration) {

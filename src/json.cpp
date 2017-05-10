@@ -120,6 +120,9 @@ namespace json {
     virtual value::object_iterator end() const {
       throw json_error("Cannot iterate over value of [type=" + to_string(type) + "] as object.");
     }
+    virtual size_t remove(size_t) {
+      throw json_error("Cannot remove value of [type=" + to_string(type) + "] since it's not an array.");
+    }
 
     // Array-related stuff
     virtual value& operator[](size_t) {
@@ -256,6 +259,11 @@ namespace json {
     size_t push(value val) override {
       values.push_back(std::make_unique<value>(val));
       return values.size() - 1;
+    }
+
+    size_t remove(size_t index) override {
+      values.erase(values.begin() + index);
+      return values.size();
     }
 
     size_t size() const override {
@@ -422,6 +430,7 @@ namespace json {
 
   value& value::operator[](size_t index) { return (*payload)[index]; }
   size_t value::push(value other) { return payload->push(other); }
+  size_t value::remove(size_t index) { return payload->remove(index); }
 
   size_t value::size() const { return payload->size(); }
   bool value::empty() const { return payload->empty(); }
