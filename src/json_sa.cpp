@@ -3,12 +3,7 @@
 #include <cctype>
 #include <memory>
 #include <vector>
-#include <tuple>
-#include <algorithm>
 #include <sstream>
-#include <istream>
-#include <stack>
-
 #include <iostream>
 
 namespace json {

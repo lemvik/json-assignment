@@ -2,7 +2,7 @@
 #define _JSON_SA_H_
 
 //
-// JSON Simple Access (a-la SAX) parser. It is easy to implement and test
+// JSON Simple Access (a-la SAX) tokenizer. It is easy to implement and test
 // and it allows writing DOM-based parser more easily.
 //
 

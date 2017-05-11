@@ -2,7 +2,6 @@
 #include "json_parser.h"
 #include "json_sa.h"
 
-#include <cassert>
 #include <stack>
 #include <sstream>
 #include <iostream>
@@ -190,7 +189,6 @@ namespace json {
         auto& current_object = objects_being_built.top();
         switch(current_object->get_type()) {
         case value_type::object: {
-          assert(!keys.empty());
           std::string key = keys.top();
           (*current_object)[key] = std::move(value);
           keys.pop();

@@ -2,7 +2,6 @@
 
 #include <sstream>
 #include <iomanip>
-#include <cassert>
 
 namespace json {
   template<typename T>

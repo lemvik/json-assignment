@@ -2,7 +2,6 @@
 #define _JSON_PARSER_H_
 
 #include "json.h"
-#include <memory>
 #include <string>
 #include <istream>
 
