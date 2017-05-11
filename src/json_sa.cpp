@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <sstream>
+#include <istream>
 #include <iostream>
 
 namespace json {

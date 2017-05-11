@@ -81,4 +81,10 @@ BOOST_AUTO_TEST_CASE(ParseAndWriteArrayObject) {
   BOOST_CHECK_EQUAL("[1,{\"key\":2}]", node.serialize());
 }
 
+BOOST_AUTO_TEST_CASE(ParseFailures) {
+  BOOST_CHECK_THROW(json::parser::parse("{{\"key\""), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("[[\"key\""), json::json_error);
+} 
+
+
 BOOST_AUTO_TEST_SUITE_END()

@@ -111,8 +111,12 @@ namespace json {
       }
 
       void json_array_starts() override {
-        context.push(next_token::value);
-        objects_being_built.push(attach(value(value_type::array)));
+        if (expects(next_token::value)) {
+          context.push(next_token::value);
+          objects_being_built.push(attach(value(value_type::array)));
+        } else {
+          fail("[(array)]");
+        }
       }
 
       void json_array_ends() override {
@@ -127,8 +131,12 @@ namespace json {
       }
 
       void json_object_starts() override {
-        context.push(next_token::key);
-        objects_being_built.push(attach(value(value_type::object)));
+        if (expects(next_token::value)) {
+          context.push(next_token::key);
+          objects_being_built.push(attach(value(value_type::object)));
+        } else {
+          fail("[(object)]");
+        }
       }
 
       void json_object_ends() override {
@@ -138,7 +146,7 @@ namespace json {
           objects_being_built.pop();
           value_read();
         } else {
-          fail("[(key)]");
+          fail("[(object_end)]");
         }
       }
 
@@ -209,9 +217,11 @@ namespace json {
         }
       }
 
-      void fail(const std::string& unnext_token) {
+      void fail(const std::string& reason) {
         failed = true;
-        std::cerr << "Next_Token to see " << next_token_values() << ", but got " << unnext_token << "\n";
+        std::stringstream ss;
+        ss << "Unable to parse JSON: expected to see " << next_token_values() << ", but got " << reason << "\n";
+        throw json::json_error(ss.str());
       }
 
       std::string next_token_values() const {
@@ -229,7 +239,7 @@ namespace json {
         }
 
         if (expects(next_token::key)) {
-          ss << "[:(colon)]";
+          ss << "[object_key]";
         }
         
         return ss.str();
