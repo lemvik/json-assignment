@@ -6,8 +6,6 @@
 #include <stack>
 #include <sstream>
 #include <iostream>
-// In C++17 just remove experimental.
-#include <experimental/optional>
 
 namespace json {
   namespace parser {

@@ -10,4 +10,5 @@ add_executable (json_test
                 json_sa_test.cpp
                 json_parse_test.cpp
                 )
+
 target_link_libraries (json_test json_library ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})

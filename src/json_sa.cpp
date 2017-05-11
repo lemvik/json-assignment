@@ -1,6 +1,6 @@
 #include "json_sa.h"
 
-#include <locale>
+#include <cctype>
 #include <memory>
 #include <vector>
 #include <tuple>
