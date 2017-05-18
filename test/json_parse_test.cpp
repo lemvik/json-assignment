@@ -84,6 +84,17 @@ BOOST_AUTO_TEST_CASE(ParseAndWriteArrayObject) {
 BOOST_AUTO_TEST_CASE(ParseFailures) {
   BOOST_CHECK_THROW(json::parser::parse("{{\"key\""), json::json_error);
   BOOST_CHECK_THROW(json::parser::parse("[[\"key\""), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("[}"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("{]"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("{1:\"asdf\""), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("{:\"asdf\""), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("{\"asdf\","), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("}"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("]"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("\""), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("trua"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("flose"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("nall"), json::json_error);
 } 
 
 
