@@ -85,41 +85,34 @@ namespace json {
     value& operator[](const std::string&);
     void remove(const std::string&);
 
-    // NOTE: references to pairs returned by this iterator are valid ONLY until
-    // next ++ operator. It can be done in other way, but for simplicity it's so for now
-    // Note that references returned in the `second` of the pair are valid for as long
-    // as container contains the referenced value
     using object_entry = std::pair<const std::string&, value&>;
     struct object_iterator : public std::iterator<std::forward_iterator_tag, object_entry> {
-      struct object_iterator_impl;
       object_iterator(const object_iterator& other);
-      object_iterator(const value& source);
+      object_iterator(const std::unordered_map<std::string, std::unique_ptr<value>>::const_iterator&);
       ~object_iterator();
-      object_iterator& to_end();
       object_iterator& operator++();
       object_iterator operator++(int) {object_iterator res = *this; ++(*this); return res;}
       bool operator==(object_iterator other) const;
       bool operator!=(object_iterator other) const;
       reference operator*() const;
     private:
-      std::unique_ptr<object_iterator_impl> impl;
+      std::unordered_map<std::string, std::unique_ptr<value>>::const_iterator source;
+      mutable std::unique_ptr<object_entry> value_reference;
     };
     object_iterator begin() const;
     object_iterator end() const;
 
     struct array_iterator : public std::iterator<std::forward_iterator_tag, value> {
-      struct array_iterator_impl;
       array_iterator(const array_iterator& other);
-      array_iterator(value& source);
+      array_iterator(const std::vector<std::unique_ptr<value>>::const_iterator&);
       ~array_iterator();
-      array_iterator& to_end();
       array_iterator& operator++();
       array_iterator operator++(int) {array_iterator res = *this; ++(*this); return res;}
       bool operator==(array_iterator other) const;
       bool operator!=(array_iterator other) const;
       reference operator*() const;
     private:
-      std::unique_ptr<array_iterator_impl> impl;
+      std::vector<std::unique_ptr<value>>::const_iterator source;
     };
     array_iterator abegin();
     array_iterator aend();
@@ -133,9 +126,18 @@ namespace json {
     bool empty() const;  // Returns true if object/array is empty 
 
     friend void swap(value& lhs, value& rhs);
-    struct value_impl;
   private:
-    std::unique_ptr<value_impl> payload;
+    void from(const value&);
+    void release();
+    // Either a Boost variant or C++17 variant here is more proper.
+    value_type type;
+    union {
+      double                                                  number;
+      std::string                                             string;
+      bool                                                    boolean;
+      std::unordered_map<std::string, std::unique_ptr<value>> object;
+      std::vector<std::unique_ptr<value>>                     array;
+    };
   };
 
   std::ostream& operator<<(std::ostream&, const value&);

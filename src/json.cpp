@@ -49,344 +49,167 @@ namespace json {
     return os;
   }
 
-  // Base class - defines most of methods
-  struct value::value_impl {
-    value_type type;
+  value::~value() {
+    release();
+  }
 
-    value_impl(value_type t) : type(t) {}
+  void value::release() {
+    using std::string;
+    using std::unordered_map;
+    using std::vector;
 
-    virtual ~value_impl() {}
-    // Comparison operators
-    virtual bool operator==(const value_impl& other) const {
-      return type == other.type;
-    }
-    virtual bool operator!=(const value_impl& other) const {
-      return type != other.type;
-    }
-
-    // Type checking
-    bool is_null() const {
-      return type == value_type::null;
-    }
-    bool is_string() const {
-      return type == value_type::string;
-    }
-    bool is_number() const {
-      return type == value_type::number;
-    }
-    bool is_boolean() const {
-      return type == value_type::boolean;
-    }
-    bool is_object() const {
-      return type == value_type::object;
-    }
-    bool is_array() const {
-      return type == value_type::array;
-    }
-    value_type get_type() const {
-      return type;
-    }
-
-    // Retrieving values
-    virtual std::string as_string() const {
-      throw json_error("Cannot return value of [type=" + to_string(type) + "] as string.");
-    }
-    virtual double as_number() const {
-      throw json_error("Cannot return value of [type=" + to_string(type) + "] as double.");
-    }
-    virtual bool as_boolean() const {
-      throw json_error("Cannot return value of [type=" + to_string(type) + "] as boolean.");
-    }
-
-    virtual std::string serialize() const {
-      throw json_error("Cannot serialize base json node.");
-    }
-
-    // Object-related stuff
-    virtual bool has(const std::string&) const {
-      throw json_error("Cannot query value of [type=" + to_string(type) + "] as object.");
-    }
-    virtual value& operator[](const std::string&) {
-      throw json_error("Cannot query value of [type=" + to_string(type) + "] as object.");
-    }
-    virtual void remove(const std::string&) {
-      throw json_error("Cannot remove value of [type=" + to_string(type) + "] since it's not an object.");
-    }
-
-    virtual value::object_iterator begin() const {
-      throw json_error("Cannot iterate over value of [type=" + to_string(type) + "] as object.");
-    }
-    virtual value::object_iterator end() const {
-      throw json_error("Cannot iterate over value of [type=" + to_string(type) + "] as object.");
-    }
-    virtual size_t remove(size_t) {
-      throw json_error("Cannot remove value of [type=" + to_string(type) + "] since it's not an array.");
-    }
-
-    // Array-related stuff
-    virtual value& operator[](size_t) {
-      throw json_error("Cannot query value of [type=" + to_string(type) + "] as array.");
-    }
-    virtual size_t push(value) {
-      throw json_error("Cannot push to value of [type=" + to_string(type) + "] as array.");
-    }
-
-    virtual size_t size() const {
-      throw json_error("Cannot query size of value of [type=" + to_string(type) + "].");
-    }
-
-    virtual bool empty() const {
-      throw json_error("Cannot query emptiness of value of [type=" + to_string(type) + "].");
-    }
-  };
-
-  struct null_value : public value::value_impl {
-    null_value() : value::value_impl(value_type::null) {}
-    std::string serialize() const override {
-      return "null";
-    }
-  };
-
-  class numeric_value : public value::value_impl {
-    double val;
-  public:
-    numeric_value() : value::value_impl(value_type::number), val(0) {}
-    numeric_value(double _val) : value::value_impl(value_type::number), val(_val) {}
-    double as_number() const override {
-      return val;
-    }
-    std::string serialize() const override {
-      return to_string(val);
-    }
-  };
-
-  class boolean_value : public value::value_impl {
-    bool val;
-  public:
-    boolean_value() : value::value_impl(value_type::boolean), val(false) {}
-    boolean_value(bool _val) : value::value_impl(value_type::boolean), val(_val) {}
-    bool as_boolean() const override {
-      return val;
-    }
-    std::string serialize() const override {
-      return val ? "true" : "false";
-    }
-  };
-
-  class string_value : public value::value_impl {
-    std::string val;
-  public:
-    string_value() : value::value_impl(value_type::string), val("") {}
-    string_value(const std::string& str) : value::value_impl(value_type::string), val(str) {}
-    std::string as_string() const override {
-      return val;
-    }
-    std::string serialize() const override {
-      return escape(val);
-    }
-  };
-
-  class object_value : public value::value_impl {
-    std::unordered_map<std::string, std::unique_ptr<value>> children;
-    friend value::object_iterator::object_iterator(const value&);
-  public:
-    object_value() : value::value_impl(value_type::object), children() {}
-    object_value(const object_value& other) : value::value_impl(value_type::object) {
-      for (auto& el : other.children) {
-        children.insert(std::make_pair(el.first, std::make_unique<value>(*el.second)));
-      }
-    }
-
-    bool has(const std::string& key) const override {
-      return children.find(key) != children.end();
-    }
-
-    value& operator[](const std::string& key) override {
-      auto element_pair = children.emplace(key, std::make_unique<value>());
-      return *(element_pair.first)->second;
-    }
-
-    void remove(const std::string& key) override {
-      children.erase(key);
-    }
-
-    size_t size() const override {
-      return children.size();
-    }
-
-    bool empty() const override {
-      return children.empty();
-    }
-    
-    std::string serialize() const override {
-      std::stringstream ss;
-      auto sep = "";
-
-      ss << "{";
-
-      for (auto& el : children) {
-        ss << sep << '"' << el.first << '"' << ":" << el.second->serialize();
-        sep = ",";
-      }
-      
-      ss << "}";
-
-      return ss.str();
-    }
-  };
-
-  class array_value : public value::value_impl {
-    std::vector<std::unique_ptr<value>> values;
-    friend value::array_iterator::array_iterator(value&);
-  public:
-    array_value() : value::value_impl(value_type::array), values() {}
-    array_value(const array_value& other) : value::value_impl(value_type::array), values() {
-      for (auto& el : other.values) {
-        values.push_back(std::make_unique<value>(*el));
-      }
-    }
-
-    value& operator[](size_t index) override {
-      if (index < values.size()) {
-        return *(values[index]); // Since the returned value is fixed in memory (pinned by std::unique_ptr) only std::unique_ptr
-                                 // is moved during resize, thus this value should be valid even if `values` vector resizes (as long as it contains
-                                 // the appropriate pointer.
-      }
-      throw json_error("Given [index=" + to_string(index) + "] is out of bounds for the JSON array of [size=" + to_string(values.size()) + "]");
-    }
-
-    size_t push(value val) override {
-      values.push_back(std::make_unique<value>(val));
-      return values.size() - 1;
-    }
-
-    size_t remove(size_t index) override {
-      values.erase(values.begin() + index);
-      return values.size();
-    }
-
-    size_t size() const override {
-      return values.size();
-    }
-
-    bool empty() const override {
-      return values.empty();
-    }
-
-    std::string serialize() const override {
-      std::stringstream ss;
-      auto sep = "";
-
-      ss << "[";
-
-      for (auto& el : values) {
-        ss << sep << el->serialize();
-        sep = ",";
-      }
-      
-      ss << "]";
-
-      return ss.str();
-    }
-  };
-
-  std::unique_ptr<value::value_impl> static_dispatch_copy(const value::value_impl& source) {
-    switch (source.type) {
-    case value_type::null: return std::make_unique<null_value>(static_cast<const null_value&>(source));
-    case value_type::boolean: return std::make_unique<boolean_value>(static_cast<const boolean_value&>(source));
-    case value_type::number: return std::make_unique<numeric_value>(static_cast<const numeric_value&>(source));
-    case value_type::string: return std::make_unique<string_value>(static_cast<const string_value&>(source));
-    case value_type::object: return std::make_unique<object_value>(static_cast<const object_value&>(source));
-    case value_type::array: return std::make_unique<array_value>(static_cast<const array_value&>(source));
-    default:
-      throw json_error("Unknown json type encountered: " + to_string(source.type) + " during copy construction.");
+    switch (type) {
+    case value_type::null: 
+    case value_type::number: 
+    case value_type::boolean: 
+      return;
+    case value_type::string:
+      this->string.~string();
+      return;
+    case value_type::object:
+      this->object.~unordered_map();
+      return;
+    case value_type::array:
+      this->array.~vector();
+      return;
     }
   }
 
-  value::~value() {}
-
-  value::value(const value& other) : payload(static_dispatch_copy(*other.payload)) {
-    // static_dispatch_copy here only to avoid doing reset() on payload.
+  void should_be(const value& val, value_type t) {
+    if (val.get_type() != t) {
+      throw json_error("Value of [type=" + to_string(val.get_type()) + "] is treated as value of [type=" + to_string(t) + "]");
+    }
   }
 
-  value::value(value&& other) {
-    using std::swap; // Actual design if from here http://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom and Effective Modern C++ by Mayers
-    swap(*this, other);
+  void value::from(const value& other) {
+    switch (other.type) {
+    case value_type::null:    this->number  = 0;             break;
+    case value_type::number:  this->number  = other.number;  break; 
+    case value_type::boolean: this->boolean = other.boolean; break; 
+    case value_type::string:  this->string  = other.string;  break;
+    case value_type::object:
+      for (auto& el : other.object) {
+        this->object.insert(std::make_pair(el.first, std::make_unique<value>(*el.second)));
+      }
+      break;
+    case value_type::array:
+      for (auto& el : other.array) {
+        this->array.push_back(std::make_unique<value>(*el));
+      }
+      break;
+    }
+  }
+
+  value::value(const value& other) : value(other.type) {
+    from(other);
+  }
+
+  value::value(value&& other) : value(other.type) {
+    switch (other.type) {
+    case value_type::null:    this->number  = 0;             break;
+    case value_type::number:  this->number  = other.number;  break; 
+    case value_type::boolean: this->boolean = other.boolean; break; 
+    case value_type::string:  new (&string) std::string(std::move(other.string)); break;
+    case value_type::object:  new (&object) std::unordered_map<std::string, std::unique_ptr<value>>(std::move(other.object)); break;
+    case value_type::array:   new (&array) std::vector<std::unique_ptr<value>>(std::move(other.array));  break;
+    }
   }
 
   value& value::operator=(const value& other) {
-    using std::swap;
-    value new_other(other); // TODO: come up with more efficient solution.
-    swap(*this, new_other); // Here we swap with the copy that gets thrown away anyways.
+    if (this == &other) {
+      return *this;
+    }
+    release();
+    type = other.type;
+    from(other);
     return *this;
   }
 
   value& value::operator=(value&& other) {
-    using std::swap;
-    swap(*this, other);
+    release();
+    type = other.type;
+    switch (other.type) {
+    case value_type::null:    number = 0; break;
+    case value_type::number:  this->number  = other.number;  break; 
+    case value_type::boolean: this->boolean = other.boolean; break; 
+    case value_type::string:  new (&string) std::string(std::move(other.string)); break;
+    case value_type::object:  new (&object) std::unordered_map<std::string, std::unique_ptr<value>>(std::move(other.object)); break;
+    case value_type::array:   new (&array) std::vector<std::unique_ptr<value>>(std::move(other.array));  break;
+    }
     return *this;
   }
 
-  value::value() : payload(std::make_unique<null_value>()) {}
-  value::value(std::nullptr_t) : payload(std::make_unique<null_value>()) {}
-  value::value(const std::string& str) : payload(std::make_unique<string_value>(str)) {}
-  value::value(const char* str) : payload(std::make_unique<string_value>(str)) {}
-  value::value(double val) : payload(std::make_unique<numeric_value>(val)) {}
-  value::value(bool val) : payload(std::make_unique<boolean_value>(val)) {}
-  // value::value(std::initializer_list<value> vals) : payload(std::make_unique<array_value>()) {
-  //   for (auto el : vals) {
-  //     payload->push(el);
-  //   }
-  // }
-  value::value(std::initializer_list<std::pair<std::string, value>> pairs) : payload(std::make_unique<object_value>()) {
+  value::value() : type(value_type::null) {}
+  value::value(std::nullptr_t) : type(value_type::null) {}
+  value::value(const std::string& str) : type(value_type::string), string(str) {}
+  value::value(const char* str) : type(value_type::string), string(str) {}
+  value::value(double val) : type(value_type::number), number(val) {}
+  value::value(bool val) : type(value_type::boolean), boolean(val) {}
+  value::value(std::initializer_list<std::pair<std::string, value>> pairs) : type(value_type::object), object() {
     for (auto el : pairs) {
-      (*payload)[el.first] = el.second;
+      object[el.first] = std::make_unique<value>(el.second);
     }
   }
 
-  value::value(value_type t) : payload() {
+  value::value(value_type t) : type(t) {
     switch(t) {
-    case value_type::null:    payload = std::make_unique<null_value>(); break;
-    case value_type::boolean: payload = std::make_unique<boolean_value>(); break;
-    case value_type::number:  payload = std::make_unique<numeric_value>(); break;
-    case value_type::string:  payload = std::make_unique<string_value>(); break;
-    case value_type::object:  payload = std::make_unique<object_value>(); break;
-    case value_type::array:   payload = std::make_unique<array_value>(); break;
+    case value_type::null:    number = 0;      break;
+    case value_type::boolean: boolean = false; break;
+    case value_type::number:  number = 0;      break; 
+    case value_type::string:  new (&string) std::string(""); break;
+    case value_type::object:  new (&object) std::unordered_map<std::string, std::unique_ptr<value>>(); break;
+    case value_type::array:   new (&array) std::vector<std::unique_ptr<value>>(); break;
     default:
       throw json_error("Unknown [value_type=" + to_string(t) + "] encountered during construction.");
     }
   }
 
-  value& value::operator=(const char* str) {        // Overload of char* assignment
-    value nval(str);
-    swap(*this, nval);
+  value& value::operator=(const char* str) {
+    // TODO: think about exception safety
+    release();
+    type = value_type::string;
+    new (&string) std::string(str);
     return *this;
   }
 
-  value& value::operator=(bool a) {               // Overload of bool assignment
-    value nval(a);
-    swap(*this, nval);
+  value& value::operator=(bool a) {
+    release();
+    type = value_type::boolean;
+    boolean = a;
     return *this;
   }
 
-  value& value::operator=(double d) {             // Overload of number assignment
-    value nval(d);
-    swap(*this, nval);
+  value& value::operator=(double d) {
+    release();
+    type = value_type::number;
+    number = d;
     return *this;
   }
 
-  value& value::operator=(std::nullptr_t) {    // Overload of null assignment 
-    value nval;
-    swap(*this, nval);
+  value& value::operator=(std::nullptr_t) {
+    release();
+    type = value_type::null;
+    number = 0;
     return *this;
   }
 
   bool value::operator==(const value& other) const {
-    return *payload == *other.payload;
+    if (type != other.type) return false;
+
+    switch (type) {
+    case value_type::null:    return true;
+    case value_type::boolean: return boolean == other.boolean;
+    case value_type::number:  return number == other.number;
+    case value_type::string:  return string == other.string;
+    case value_type::object:  return object == other.object;
+    case value_type::array:   return array == other.array;
+    default:
+      throw json_error("Encountered an unknown type in runtime - value_type enumeration is not supposed to be treated as flag enum.");
+    }
   }
 
   bool value::operator!=(const value& other) const {
-    return *payload != *other.payload;
+    return !((*this) == other);
   }
 
   bool value::operator==(std::nullptr_t) const {
@@ -396,124 +219,147 @@ namespace json {
     return get_type() != value_type::null;
   }
 
-  bool value::is_null() const { return payload->is_null(); }
-  bool value::is_string() const { return payload->is_string(); }
-  bool value::is_number() const { return payload->is_number(); }
-  bool value::is_boolean() const { return payload->is_boolean(); }
-  bool value::is_object() const { return payload->is_object(); }
-  bool value::is_array() const { return payload->is_array(); }
-  value_type value::get_type() const { return payload->get_type(); }
+  bool value::is_null() const { return type == value_type::null; }
+  bool value::is_string() const { return type == value_type::string; }
+  bool value::is_number() const { return type == value_type::number; }
+  bool value::is_boolean() const { return type == value_type::boolean; }
+  bool value::is_object() const { return type == value_type::object; }
+  bool value::is_array() const { return type == value_type::array; }
+  value_type value::get_type() const { return type; }
 
-  std::string value::as_string() const { return payload->as_string(); }
-  double      value::as_number() const { return payload->as_number(); }
-  bool        value::as_boolean() const { return payload->as_boolean(); }
+  std::string value::as_string() const { should_be(*this, value_type::string); return string; }
+  double      value::as_number() const { should_be(*this, value_type::number); return number; }
+  bool        value::as_boolean() const { should_be(*this, value_type::boolean); return boolean; }
 
-  std::string value::serialize() const { return payload->serialize(); }
+  std::string value::serialize() const {
+    switch (type) {
+    case value_type::null:    return "null";
+    case value_type::boolean: return boolean ? "true" : "false";
+    case value_type::number:  return to_string(number);
+    case value_type::string:  return escape(string);
+    case value_type::object: {
+      std::stringstream ss;
+      std::string separator = "";
+      ss << "{";
+      for (const auto& el: object) {
+        ss << separator;
+        ss << escape(el.first) << ":" << el.second->serialize();
+        separator = ",";
+      }
+      ss << "}";
+      return ss.str();
+    }
+    case value_type::array: {
+      std::stringstream ss;
+      std::string separator = "";
+      ss << "[";
+      for (const auto& el: array) {
+        ss << separator;
+        ss << el->serialize();
+        separator = ",";
+      }
+      ss << "]";
+      return ss.str();
+    }
+    default:
+      throw json_error("Encountered an unknown type in runtime - value_type enumeration is not supposed to be treated as flag enum.");
+    }
+  }
 
-  bool value::has(const std::string& key) const { return payload->has(key); }
-  value& value::operator[](const std::string& key) { return (*payload)[key]; }
-  void value::remove(const std::string& key) { return payload->remove(key); }
+  bool value::has(const std::string& key) const { should_be(*this, value_type::object); return object.find(key) != object.end(); }
+  value& value::operator[](const std::string& key) {
+    should_be(*this, value_type::object);
+    auto element = object.emplace(key, std::make_unique<value>());
+    return *(element.first->second);
+  }
+  void value::remove(const std::string& key) { should_be(*this, value_type::object); object.erase(key); }
 
   value::object_iterator value::begin() const {
-    return value::object_iterator(*this);
+    should_be(*this, value_type::object);
+    return value::object_iterator(object.begin());
   }
   value::object_iterator value::end() const {
-    return value::object_iterator(*this).to_end();
+    should_be(*this, value_type::object);
+    return value::object_iterator(object.end());
   }
   value::array_iterator value::abegin() {
-    return value::array_iterator(*this);
+    should_be(*this, value_type::array);
+    return value::array_iterator(array.begin());
   }
   value::array_iterator value::aend() {
-    return value::array_iterator(*this).to_end();
+    should_be(*this, value_type::array);
+    return value::array_iterator(array.end());
   }
 
-  value& value::operator[](size_t index) { return (*payload)[index]; }
-  size_t value::push(value other) { return payload->push(other); }
-  size_t value::remove(size_t index) { return payload->remove(index); }
+  value& value::operator[](size_t index) {
+    should_be(*this, value_type::array);
+    if (index >= array.size()) {
+      throw json_error("Given [index=" + to_string(index) + "] is out of bounds for the JSON array of [size=" + to_string(array.size()) + "]");
+    }
+    return *(array[index]);
+  }
+  size_t value::push(value other) { should_be(*this, value_type::array); array.push_back(std::make_unique<value>(other)); return array.size() - 1; }
+  size_t value::remove(size_t index) { should_be(*this, value_type::array); array.erase(array.begin() + index); return array.size(); }
 
-  size_t value::size() const { return payload->size(); }
-  bool value::empty() const { return payload->empty(); }
+  size_t value::size() const {
+    if (type == value_type::array) {
+      return array.size();
+    } else if (type == value_type::object) {
+      return object.size();
+    } else {
+      throw json_error("CAn only query size of object and array nodes, this node type is [type=" + to_string(type) + "]");
+    }
+  }
+  bool value::empty() const { should_be(*this, value_type::array); return array.empty(); }
 
   void swap(value& lhs, value& rhs) {
     using std::swap;
-    swap(lhs.payload, rhs.payload);
+    if (lhs.type == rhs.type) {
+      switch (lhs.type) {
+      case value_type::null:    return;
+      case value_type::boolean: swap(lhs.boolean, rhs.boolean);
+      case value_type::number:  swap(lhs.number, rhs.number);
+      case value_type::string:  swap(lhs.string, rhs.string);
+      case value_type::object:  swap(lhs.object, rhs.object);
+      case value_type::array:   swap(lhs.array, rhs.array);
+      }
+      return;
+    }
+
+    std::swap(lhs, rhs); // This swap will use move construction and two move assignments
   }
 
-  struct value::object_iterator::object_iterator_impl : public std::iterator<std::forward_iterator_tag, value::object_entry> {
-    using source = std::unordered_map<std::string, std::unique_ptr<value>>;
-    using source_iterator = source::const_iterator;
-
-    const source& src;
-    source_iterator iter;
-    std::unique_ptr<value::object_entry> current_reference; // Should be std::optional in C++ 17
-
-    object_iterator_impl(const source& _src) : src(_src), iter(src.begin()) { update_reference(); }
-    object_iterator_impl(const source& _src, source_iterator _iter) : src(_src), iter(_iter) { update_reference(); }
-    object_iterator_impl(const object_iterator_impl& other) : src(other.src), iter(other.iter) { update_reference(); }
-
-    void update_reference() {
-      if (iter != src.end()) {
-        current_reference = std::make_unique<value::object_entry>(iter->first, *(iter->second));
-      }
+  value::object_iterator::object_iterator(const value::object_iterator& other) : source(other.source) {
+    if (other.value_reference) {
+      value_reference = std::make_unique<object_entry>(*other.value_reference);
     }
-  };
-
-  value::object_iterator::object_iterator(const value::object_iterator& other) : impl(std::make_unique<object_iterator_impl>(*other.impl)) {  }
-  value::object_iterator::object_iterator(const value& source) {
-    if (source.get_type() != json::value_type::object) {
-      throw json_error("Unable to use object_iterator to iterate oven non-object: [type=" + to_string(source.get_type()) + "]");
-    }
-
-    auto& map = static_cast<object_value&>(*source.payload).children;
-    impl = std::make_unique<object_iterator_impl>(map);
+  }
+  value::object_iterator::object_iterator(const std::unordered_map<std::string, std::unique_ptr<value>>::const_iterator& src) : source(src), value_reference(nullptr) {
+    source = src; 
   }
   value::object_iterator::~object_iterator() = default;
   value::object_iterator& value::object_iterator::operator++() {
-    ++(impl->iter);
-    impl->update_reference();
+    ++source;
     return *this;
   }
-  value::object_iterator& value::object_iterator::to_end() {
-    auto last = impl->src.end();
-    const auto& src = impl->src;
-    impl = std::make_unique<object_iterator_impl>(src, last); 
-    return *this;
+  bool value::object_iterator::operator==(value::object_iterator other) const { return source == other.source; }
+  bool value::object_iterator::operator!=(value::object_iterator other) const { return source != other.source; }
+  value::object_iterator::reference value::object_iterator::operator*() const { 
+    value_reference = std::make_unique<value::object_entry>(source->first, *(source->second));
+    return *value_reference;
   }
-  bool value::object_iterator::operator==(value::object_iterator other) const { return impl->iter == other.impl->iter; }
-  bool value::object_iterator::operator!=(value::object_iterator other) const { return impl->iter != other.impl->iter; }
-  value::object_iterator::reference value::object_iterator::operator*() const { return *(impl->current_reference); }
 
-  struct value::array_iterator::array_iterator_impl {
-    using source = std::vector<std::unique_ptr<value>>;
-    using iterator = std::vector<std::unique_ptr<value>>::iterator;
-    
-    source& src;
-    iterator iter;
-
-    array_iterator_impl(source& _src, iterator _iter) : src(_src), iter(_iter) {}
-    array_iterator_impl(const array_iterator_impl& other) : src(other.src), iter(other.iter) {}
-  };
-
-  value::array_iterator::array_iterator(const array_iterator& other) : impl(std::make_unique<array_iterator_impl>(*other.impl)) {}
-  value::array_iterator::array_iterator(value& source) {
-    if (source.get_type() != json::value_type::array) {
-      throw json_error("Unable to construct array iterator from value of [type=" + to_string(source.get_type()) + "]");
-    }
-    auto& vector = static_cast<array_value&>(*source.payload).values;
-    impl = std::make_unique<array_iterator_impl>(vector, vector.begin());
-  }
+  value::array_iterator::array_iterator(const array_iterator& other) : source(other.source) {}
+  value::array_iterator::array_iterator(const std::vector<std::unique_ptr<value>>::const_iterator& src) : source(src) {}
   value::array_iterator::~array_iterator() = default; 
-  value::array_iterator& value::array_iterator::to_end() {
-    auto& vec = impl->src;
-    auto iter = vec.end();
-    impl = std::make_unique<array_iterator_impl>(vec, iter);
+  value::array_iterator& value::array_iterator::operator++() {
+    ++source;
     return *this;
   }
-  value::array_iterator& value::array_iterator::operator++() { ++(impl->iter); return *this; }
-  bool value::array_iterator::operator==(value::array_iterator other) const { return impl->iter == other.impl->iter; }
-  bool value::array_iterator::operator!=(value::array_iterator other) const { return impl->iter != other.impl->iter; }
+  bool value::array_iterator::operator==(value::array_iterator other) const { return source == other.source; }
+  bool value::array_iterator::operator!=(value::array_iterator other) const { return source != other.source; }
   value::array_iterator::reference value::array_iterator::operator*() const {
-    return *(*(impl->iter)); // Since we want to return reference - two dereferences.
+    return *(*source);
   }
 
   std::ostream& operator<<(std::ostream& os, const value& val) {
