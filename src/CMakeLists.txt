@@ -8,6 +8,7 @@ add_library (json_library
   json.h
   json.cpp
   utils.h
+  utils.cpp
   )
 
 add_executable (json main.cpp)

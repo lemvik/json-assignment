@@ -13,6 +13,7 @@ namespace json {
 
   // Possible types of JSON values.
   enum class value_type { null, number, boolean, string, object, array };
+  // This operator overload is to simplify debbugging/testing mostly.
   std::ostream& operator<<(std::ostream& os, const value_type& val);
 
   // Error to signal if anything goes awry.
@@ -20,6 +21,8 @@ namespace json {
     json_error(const std::string& reason) : std::runtime_error(reason) {}
   };
 
+  // The structure that encapsulates JSON value. Relies on runtime checks to
+  // check validity of operations. Have two proxies - for objects and for arrays operations.
   struct value {
     // Constructor and assignment stuff
     ~value();
@@ -54,34 +57,38 @@ namespace json {
     value& operator=(const char*);        // Overload of char* assignment
     value& operator=(bool);               // Overload of bool assignment
     value& operator=(double);             // Overload of number assignment
-    value& operator=(std::nullptr_t);     // Overload of null assignment
+    value& operator=(std::nullptr_t);     // Overload of null assignment (to be able to write obj["key"] = nullptr a-la JavaScript)
 
     // Comparison operators
-    bool operator==(const value&) const;
-    bool operator!=(const value&) const;
-    bool operator==(std::nullptr_t) const;
-    bool operator!=(std::nullptr_t) const;
+    bool operator==(const value&)   const;
+    bool operator!=(const value&)   const;
+    bool operator==(std::nullptr_t) const; // This and following methods are to simplify comparison frequently
+    bool operator!=(std::nullptr_t) const; // encoutered in JS code (obj["key"] == null(ptr))
 
     // Type checking
-    bool is_null() const;
-    bool is_string() const;
-    bool is_number() const;
-    bool is_boolean() const;
-    bool is_object() const;
-    bool is_array() const;
-    value_type get_type() const;
+    bool       is_null()    const;
+    bool       is_string()  const;
+    bool       is_number()  const;
+    bool       is_boolean() const;
+    bool       is_object()  const;
+    bool       is_array()   const;
+    value_type get_type()   const;
 
     // Retrieving values
-    std::string as_string() const;
-    double      as_number() const;
+    std::string as_string()  const;
+    double      as_number()  const;
     bool        as_boolean() const;
 
-    // Serialization
+    // Serialization - write a JSON representation of the value.
     std::string serialize() const;
 
     // Object-related stuff
+    // Returns true if object contains a key.
     bool has(const std::string&) const;
+    // Returns reference to value stored in given key. Mimics the behaviour of std::unordered_map[key]
+    // in that it returns either a stored value or associates default value with key and returns that.
     value& operator[](const std::string&);
+    // Removed key association from object. If no key exists - does nothing.
     void remove(const std::string&);
 
     using object_entry = std::pair<const std::string&, value&>;
@@ -101,6 +108,17 @@ namespace json {
     object_iterator begin() const;
     object_iterator end() const;
 
+    // Array-related stuff
+
+    // Returns reference to a value stored in JSON array. Mimics behaviour of
+    // std::vector.at(): if index is out of bounds, raises an exception of type out_of_range
+    value& operator[](size_t);
+    // Pushes value into the array, returning size of the array (and the index of pushed element, coincidentally)
+    size_t push(value);
+    // Removes the element at given index, returning new size of array. If index is out
+    // of array's bounds, throws an out_of_range exception.
+    size_t remove(size_t);
+
     struct array_iterator : public std::iterator<std::forward_iterator_tag, value> {
       array_iterator(const array_iterator& other);
       array_iterator(const std::vector<std::unique_ptr<value>>::const_iterator&);
@@ -116,18 +134,17 @@ namespace json {
     array_iterator abegin();
     array_iterator aend();
 
-    // Array-related stuff
-    value& operator[](size_t);
-    size_t push(value);
-    size_t remove(size_t);
+    // For object and arrays returns the number of entries.
+    size_t size() const; 
+    // Returns true if object/array is empty
+    bool empty() const; 
 
-    size_t size() const; // For object and arrays returns the number of entries.
-    bool empty() const;  // Returns true if object/array is empty
-
-    friend void swap(value& lhs, value& rhs);
+    friend void swap(value& lhs, value& rhs);  
   private:
+    // Populates this instance from another one.
     void from(const value&);
-    void release();
+    // Releases currently held value. Sets type to null. noexcept explained in .cpp.
+    void release() noexcept;
     // Either a Boost variant or C++17 variant here is more proper.
     value_type type;
     union {
@@ -139,6 +156,7 @@ namespace json {
     };
   };
 
+  // Overload for outputting to stream (internally works via serialize).
   std::ostream& operator<<(std::ostream&, const value&);
 }
 

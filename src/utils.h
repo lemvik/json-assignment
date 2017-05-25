@@ -14,11 +14,7 @@ namespace json {
     }
 
     template<>
-    std::string to_string<bool>(const bool& val) {
-      const std::string t = "true";
-      const std::string f = "false";
-      return val ? t : f;
-    }
+    std::string to_string<bool>(const bool& val);
   }
 }
 

@@ -1,17 +1,16 @@
 #include "json.h"
+#include "utils.h"
 
+#include <cassert>
 #include <sstream>
 #include <iomanip>
+#include <stdexcept>
 
 namespace json {
-  template<typename T>
-  std::string to_string(const T& obj) {
-    std::stringstream ss;
-    ss << obj;
-    return ss.str();
-  }
 
   // This code is "borrowed" from here: http://stackoverflow.com/a/33799784
+  // This stability not really required in this assignment, however, it's `proven to work` as
+  // in `I trust everything I can find on the Web`
   std::string escape(const std::string& str) {
     std::ostringstream o;
     o << '"';
@@ -49,11 +48,17 @@ namespace json {
     return os;
   }
 
+  // Releases resources held by this instance.
+  // Does not throw.
   value::~value() {
     release();
   }
 
-  void value::release() {
+  // This function is noexcept because ~string() doesn't throw by standard
+  // and ~vector() and ~unordered_map() are _quite likely_ do not throw if destructors
+  // for contained items do not throw. Since items here are string and value, whose
+  // destructors do not throw, it's arguably safe to assume this method doesn't throw.
+  void value::release() noexcept {
     using std::string;
     using std::unordered_map;
     using std::vector;
@@ -62,28 +67,34 @@ namespace json {
     case value_type::null: 
     case value_type::number: 
     case value_type::boolean: 
-      return;
+      break;
     case value_type::string:
       this->string.~string();
-      return;
+      break;
     case value_type::object:
       this->object.~unordered_map();
-      return;
+      break;
     case value_type::array:
       this->array.~vector();
-      return;
+      break;
     }
   }
 
+  // Assertion-like function that checks if given value is of appropriate type for operation.
+  // Throws exception with explanation if it is not so.
   void should_be(const value& val, value_type t) {
     if (val.get_type() != t) {
-      throw json_error("Value of [type=" + to_string(val.get_type()) + "] is treated as value of [type=" + to_string(t) + "]");
+      throw json_error("Value of [type=" + utils::to_string(val.get_type()) + "] is treated as value of [type=" + utils::to_string(t) + "]");
     }
   }
 
+  // Copies contents from other value.
   void value::from(const value& other) {
+    assert(type == other.type); // This method is assumed to be invoked after type is properly set.
+                                // Although not super-good decision, it allows setting type in initalizer expression
+                                // of copy-constructor.
     switch (other.type) {
-    case value_type::null:    this->number  = 0;             break;
+    case value_type::null:    break; // Leave union unitialized.
     case value_type::number:  this->number  = other.number;  break; 
     case value_type::boolean: this->boolean = other.boolean; break; 
     case value_type::string:  this->string  = other.string;  break;
@@ -129,7 +140,7 @@ namespace json {
     release();
     type = other.type;
     switch (other.type) {
-    case value_type::null:    number = 0; break;
+    case value_type::null:    break;
     case value_type::number:  this->number  = other.number;  break; 
     case value_type::boolean: this->boolean = other.boolean; break; 
     case value_type::string:  new (&string) std::string(std::move(other.string)); break;
@@ -153,14 +164,14 @@ namespace json {
 
   value::value(value_type t) : type(t) {
     switch(t) {
-    case value_type::null:    number = 0;      break;
+    case value_type::null:    break;
     case value_type::boolean: boolean = false; break;
     case value_type::number:  number = 0;      break; 
-    case value_type::string:  new (&string) std::string(""); break;
+    case value_type::string:  new (&string) std::string(); break;
     case value_type::object:  new (&object) std::unordered_map<std::string, std::unique_ptr<value>>(); break;
     case value_type::array:   new (&array) std::vector<std::unique_ptr<value>>(); break;
     default:
-      throw json_error("Unknown [value_type=" + to_string(t) + "] encountered during construction.");
+      throw json_error("Unknown [value_type=" + utils::to_string(t) + "] encountered during construction.");
     }
   }
 
@@ -204,7 +215,11 @@ namespace json {
     case value_type::object:  return object == other.object;
     case value_type::array:   return array == other.array;
     default:
-      throw json_error("Encountered an unknown type in runtime - value_type enumeration is not supposed to be treated as flag enum.");
+      // We shouldn't end up here, but we might, since enum class can be
+      // operated upon via static_cast<int> + bitwise operations + cast back and C++ standard
+      // mandates that such operations are valid.
+      assert(false);
+      return false;
     }
   }
 
@@ -213,10 +228,10 @@ namespace json {
   }
 
   bool value::operator==(std::nullptr_t) const {
-    return get_type() == value_type::null;
+    return type == value_type::null;
   }
   bool value::operator!=(std::nullptr_t) const {
-    return get_type() != value_type::null;
+    return type != value_type::null;
   }
 
   bool value::is_null() const { return type == value_type::null; }
@@ -235,7 +250,7 @@ namespace json {
     switch (type) {
     case value_type::null:    return "null";
     case value_type::boolean: return boolean ? "true" : "false";
-    case value_type::number:  return to_string(number);
+    case value_type::number:  return utils::to_string(number);
     case value_type::string:  return escape(string);
     case value_type::object: {
       std::stringstream ss;
@@ -262,7 +277,9 @@ namespace json {
       return ss.str();
     }
     default:
-      throw json_error("Encountered an unknown type in runtime - value_type enumeration is not supposed to be treated as flag enum.");
+      // See comment at operator==
+      assert(false);
+      return std::string(); // Unreachable actually, but no standard way to avoid warning AFAIK
     }
   }
 
@@ -294,29 +311,47 @@ namespace json {
   value& value::operator[](size_t index) {
     should_be(*this, value_type::array);
     if (index >= array.size()) {
-      throw json_error("Given [index=" + to_string(index) + "] is out of bounds for the JSON array of [size=" + to_string(array.size()) + "]");
+      throw std::out_of_range("Given [index=" + utils::to_string(index) + "] is out of bounds for the JSON array of [size=" + utils::to_string(array.size()) + "]");
     }
     return *(array[index]);
   }
   size_t value::push(value other) { should_be(*this, value_type::array); array.push_back(std::make_unique<value>(other)); return array.size() - 1; }
-  size_t value::remove(size_t index) { should_be(*this, value_type::array); array.erase(array.begin() + index); return array.size(); }
+  size_t value::remove(size_t index) {
+    should_be(*this, value_type::array);
+    if (index >= array.size()) {
+      throw std::out_of_range("Given [index=" + utils::to_string(index) + "] is out of bounds for the JSON array of [size=" + utils::to_string(array.size()) + "]");
+    }
+    array.erase(array.begin() + index);
+    return array.size();
+  }
 
   size_t value::size() const {
-    if (type == value_type::array) {
+    switch (type) {
+    case value_type::array:
       return array.size();
-    } else if (type == value_type::object) {
+    case value_type::object:
       return object.size();
-    } else {
-      throw json_error("CAn only query size of object and array nodes, this node type is [type=" + to_string(type) + "]");
+    default:
+      throw json_error("Can only query size of object and array nodes, this node type is [type=" + utils::to_string(type) + "]");
     }
   }
-  bool value::empty() const { should_be(*this, value_type::array); return array.empty(); }
+
+  bool value::empty() const {
+    switch (type) {
+    case value_type::array:
+      return array.empty();
+    case value_type::object:
+      return object.empty();
+    default:
+      throw json_error("Can only query emptiness of object and array nodes, this node type is [type=" + utils::to_string(type) + "]");
+    }
+  }
 
   void swap(value& lhs, value& rhs) {
     using std::swap;
     if (lhs.type == rhs.type) {
       switch (lhs.type) {
-      case value_type::null:    return;
+      case value_type::null:    break;
       case value_type::boolean: swap(lhs.boolean, rhs.boolean);
       case value_type::number:  swap(lhs.number, rhs.number);
       case value_type::string:  swap(lhs.string, rhs.string);
