@@ -13,11 +13,10 @@ namespace json {
 
   // Possible types of JSON values.
   enum class value_type { null, number, boolean, string, object, array };
-  std::ostream& operator<<(std::ostream& os, const value_type& val); 
+  std::ostream& operator<<(std::ostream& os, const value_type& val);
 
   // Error to signal if anything goes awry.
-  class json_error : public std::runtime_error {
-  public:
+  struct json_error : public std::runtime_error {
     json_error(const std::string& reason) : std::runtime_error(reason) {}
   };
 
@@ -43,8 +42,8 @@ namespace json {
     value(int v) : value((double)v) {}                           // Constructs numeric value
     value(long v) : value((double)v) {}                          // Constructs numeric value
     value(value_type type);                                      // Constructs any type of value wanted.
-    //value(std::initializer_list<value>);                         // Constructs an array
-    value(std::initializer_list<std::pair<std::string, value>>); // Constructs an object 
+    //value(std::initializer_list<value>);                       // Constructs an array
+    value(std::initializer_list<std::pair<std::string, value>>); // Constructs an object
 
     // Following methods are only needed because I was tired fighting
     // C++ moronic overload resolution rules:
@@ -55,7 +54,7 @@ namespace json {
     value& operator=(const char*);        // Overload of char* assignment
     value& operator=(bool);               // Overload of bool assignment
     value& operator=(double);             // Overload of number assignment
-    value& operator=(std::nullptr_t);     // Overload of null assignment 
+    value& operator=(std::nullptr_t);     // Overload of null assignment
 
     // Comparison operators
     bool operator==(const value&) const;
@@ -123,7 +122,7 @@ namespace json {
     size_t remove(size_t);
 
     size_t size() const; // For object and arrays returns the number of entries.
-    bool empty() const;  // Returns true if object/array is empty 
+    bool empty() const;  // Returns true if object/array is empty
 
     friend void swap(value& lhs, value& rhs);
   private:

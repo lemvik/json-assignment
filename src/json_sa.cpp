@@ -64,7 +64,10 @@ namespace json {
     }
 
     bool read_number(std::istream& is, double& val) {
+      const auto classic_locale = std::locale::classic();
+      auto original_locale = is.imbue(classic_locale); // Imbue with C locale to force decimal separator to . (some of locales use ,)
       is >> val;
+      is.imbue(original_locale);
       return !is.fail();
     }
 

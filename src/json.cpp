@@ -12,7 +12,7 @@ namespace json {
   }
 
   // This code is "borrowed" from here: http://stackoverflow.com/a/33799784
-  std::string escape(std::string str) {
+  std::string escape(const std::string& str) {
     std::ostringstream o;
     o << '"';
     for (const auto& c : str) {
