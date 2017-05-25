@@ -1,4 +1,5 @@
 #include "json_sa.h"
+#include "utils.h"
 
 #include <cctype>
 #include <memory>
@@ -6,37 +7,41 @@
 #include <sstream>
 #include <istream>
 #include <iostream>
+#include <stdexcept>
 
 namespace json {
   namespace simple {
 
-    bool literal(std::istream& is, const std::string& literal) {
+    // Parser error - not visible to outside world, used to convey information about 
+    // parsing failure.
+    struct parser_error : public std::runtime_error {
+      parser_error(const std::string reason) : std::runtime_error(reason) {}
+    };
+
+    // Tries to consume given literal from given stream.
+    // Since literal is known at call time and might not correspond to any meaningful value (ex. in case of null) doesn't
+    // return anything. 
+    void read_literal(std::istream& is, const std::string& literal) {
       auto len = literal.length();
-      std::vector<std::string::value_type> read_chars(len);
 
       unsigned int i = 0;
       while (is && i < len) {
-        std::string::value_type c;
-        is >> c;
-        if (c != literal[i]) {
+        if (is.get() != literal[i]) {
           break;
         }
-        read_chars[i] = c;
         ++i;
       }
 
-      // If we failed to read enough, but read something - put back the rest
-      if (i < len && is && i != 0) {
-        for (auto j = i - 1; j != 0; --j) {
-          is.putback(read_chars[j]);
-        }
+      if (!is || i != len) {
+        throw parser_error("Failed to read [literal=" + literal + "][stream_state=" + utils::to_string((bool)is) + "][read=" + utils::to_string(i) + "]");
       }
-
-      return is && i == len;
     }
 
-    bool read_string(std::istream& is, std::string& target) {
-      std::stringstream buffer;
+    // Reads JSON string from given stream. Assumes that JSON string terminates with first
+    // non-escaped '"' (another way would be to check that first char is '"' and pass whole string here,
+    // but it looks superfluous).
+    std::string read_string(std::istream& is) {
+      std::string target;
       std::string::value_type c;
 
       bool escaped = true;
@@ -46,34 +51,42 @@ namespace json {
         is >> c;
         if (!is) {
           is.flags(in_flags);
-          return false;
+          throw parser_error("Failed to read string due to a stream error.");
         }
 
         if (c == '"' && !escaped) {
-          target = buffer.str();
           is.flags(in_flags);
-          return true;
+          return target;
         }
 
         escaped = (c == '\\' && !escaped);
-        buffer.put(c);
+        target.push_back(c);
       }
       
       is.flags(in_flags);
-      return !is.fail();
+
+      throw parser_error("Failed to read string: unterminated string encountered.");
     }
 
-    bool read_number(std::istream& is, double& val) {
+    // Reads JSON number. As per JSON spec (json.org) numbers should have . as their decimal
+    // separators. One way to ensure that would be to enforce locale on input streams, but it might
+    // have averse effects on characters reading so I went for bit uglier, but safe approach here.
+    double read_number(std::istream& is) {
       const auto classic_locale = std::locale::classic();
       auto original_locale = is.imbue(classic_locale); // Imbue with C locale to force decimal separator to . (some of locales use ,)
+      double val;
       is >> val;
       is.imbue(original_locale);
-      return !is.fail();
+      if (!is) {
+        throw parser_error("Failed to read number due to a stream error.");
+      }
+      return val; 
     }
 
+    // Docs in header.
     void run_tokenizer(const std::string& source, token_callback& callback) {
       if (source.empty()) {
-        callback.json_error("Cannot parse an empty string, top level value in JSON should be one of 'true', 'false', 'null', string literal, object or an array.");
+        callback.json_error("Cannot parse an empty string, top level value in JSON should be one of 'true', 'false', 'null', a string literal, an object or an array.");
         return;
       }
 
@@ -82,94 +95,110 @@ namespace json {
       run_tokenizer(is, callback);
     }
 
+    // Docs in header.
     void run_tokenizer(std::istream& is, token_callback& callback) {
+      const std::string null_literal = "null";
+      const std::string true_literal = "true";
+      const std::string false_literal = "false";
+
+      if (!is) {
+        callback.json_error("Unable to proceed with reading: given stream is broken.");
+        return;
+      }
+
       callback.json_start();
 
       while (is && callback.need_more_json()) {
         is >> std::ws;
+        if (!is) {
+          callback.json_error("Unable to proceed with reading: skip whitespaces for some inexplicable reason.");
+          return;
+        }
         auto c = is.peek();
-        if (!std::stringstream::traits_type::not_eof(c)) {
+        if (!is) {
           callback.json_error("Unable to proceed with reading: unable to read char.");
           return;
         }
         
         switch (c) {
         case 'n':
-          if (literal(is, "null")) {
+          try {
+            read_literal(is, null_literal);
             callback.json_null();
-            continue;
-          } else {
-            callback.json_error("Expected to read `null`, but failed.");
-            return;
+            break;
+          } catch (const parser_error& error) {
+            callback.json_error(error.what());
+            return; // Return here and below because we cannot rely on callback.neet_more_json() to return false
+                    // even after error and is could be readable
           }
         case 't':
-          if (literal(is, "true")) {
+          try {
+            read_literal(is, true_literal);
             callback.json_boolean(true);
-            continue;
-          } else {
-            callback.json_error("Expected to read `true`, but failed.");
+            break;
+          } catch (const parser_error& error) {
+            callback.json_error(error.what());
             return;
           }
         case 'f':
-          if (literal(is, "false")) {
+          try {
+            read_literal(is, false_literal);
             callback.json_boolean(false);
-            continue;
-          } else {
-            callback.json_error("Expected to read `false`, but failed.");
+            break;
+          } catch (const parser_error& error) {
+            callback.json_error(error.what());
             return;
           }
         case '{':
           is.get();
           callback.json_object_starts();
-          continue;
+          break;
         case '}':
           is.get();
           callback.json_object_ends();
-          continue;
+          break;
         case '[':
           is.get();
           callback.json_array_starts();
-          continue;
+          break;
         case ']':
           is.get();
           callback.json_array_ends();
-          continue;
+          break;
         case ':':
           is.get();
           callback.json_colon();
-          continue;
+          break;
         case ',':
           is.get();
           callback.json_comma();
-          continue;
-        case '"': {
-          is.get();
-          std::string str;
-          if (read_string(is, str)) {
-            callback.json_string(str);
-            continue;
-          } else {
-            callback.json_error("Expected to read JSON string, but failed.");
+          break;
+        case '"': 
+          is.get(); // Drop the '"'
+          try {
+            callback.json_string(read_string(is));
+            break;
+          } catch (const parser_error& error) {
+            callback.json_error(error.what());
             return;
           }
-        }
         default:
           if (c == '-' || std::isdigit(c)) {
-            double value;
-            if (read_number(is, value)) {
-              callback.json_number(value);
-              continue;
-            } else {
-              callback.json_error("Expected to read JSON number, but failed.");
+            try {
+              callback.json_number(read_number(is));
+              break;
+            } catch (const parser_error& error) {
+              callback.json_error(error.what());
               return;
             }
           } else {
-            callback.json_error("Unknown character was read: " + std::string(1, std::stringstream::traits_type::to_char_type(c)) + ", terminating.");
+            callback.json_error("Unknown character was read: '" + utils::to_string(c) + "', terminating.");
             return;
           } 
         }
       }
 
+      // Given code structure, this call is likely unneeded, but can be used to do some finalization
       callback.json_end();
     }
   }
