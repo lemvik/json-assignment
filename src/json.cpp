@@ -291,23 +291,6 @@ namespace json {
   }
   void value::remove(const std::string& key) { should_be(*this, value_type::object); object.erase(key); }
 
-  value::object_iterator value::begin() const {
-    should_be(*this, value_type::object);
-    return value::object_iterator(object.begin());
-  }
-  value::object_iterator value::end() const {
-    should_be(*this, value_type::object);
-    return value::object_iterator(object.end());
-  }
-  value::array_iterator value::abegin() {
-    should_be(*this, value_type::array);
-    return value::array_iterator(array.begin());
-  }
-  value::array_iterator value::aend() {
-    should_be(*this, value_type::array);
-    return value::array_iterator(array.end());
-  }
-
   value& value::operator[](size_t index) {
     should_be(*this, value_type::array);
     if (index >= array.size()) {
@@ -397,7 +380,112 @@ namespace json {
     return *(*source);
   }
 
+  array_value value::as_array() {
+    should_be(*this, value_type::array);
+    return array_value(*this);
+  }
+  object_value value::as_object() {
+    should_be(*this, value_type::object);
+    return object_value(*this);
+  }
+  
   std::ostream& operator<<(std::ostream& os, const value& val) {
     return os << val.serialize();
+  }
+
+  array_value::array_value(value& _value) : wrapped_value(_value) {}
+  array_value::array_value(array_value&& other) : wrapped_value(other.wrapped_value) {} // Not `move` per se
+  array_value& array_value::operator=(array_value&& other) {
+    wrapped_value = other.wrapped_value;
+    return *this;
+  }
+
+  value& array_value::operator[](size_t index) {
+    // Since we'd like to avoid runtime checks:
+    assert(wrapped_value.type == value_type::array);
+    auto& array = wrapped_value.array;
+    if (index >= array.size()) {
+      throw std::out_of_range("Given [index=" + utils::to_string(index) + "] is out of bounds for the JSON array of [size=" + utils::to_string(array.size()) + "]");
+    }
+    return *(array[index]);
+  }
+  size_t array_value::push(value other) {
+    assert(wrapped_value.type == value_type::array);
+    auto& array = wrapped_value.array;
+    array.push_back(std::make_unique<value>(other));
+    return array.size() - 1;
+  }
+  size_t array_value::remove(size_t index) {
+    assert(wrapped_value.type == value_type::array);
+    auto& array = wrapped_value.array;
+    if (index >= array.size()) {
+      throw std::out_of_range("Given [index=" + utils::to_string(index) + "] is out of bounds for the JSON array of [size=" + utils::to_string(array.size()) + "]");
+    }
+    array.erase(array.begin() + index);
+    return array.size();
+  }
+  size_t array_value::size() const {
+    assert(wrapped_value.type == value_type::array);
+    auto& array = wrapped_value.array;
+    return array.size();
+  }
+  bool   array_value::empty() const {
+    assert(wrapped_value.type == value_type::array);
+    auto& array = wrapped_value.array;
+    return array.empty();
+  }
+  value::array_iterator array_value::begin() {
+    assert(wrapped_value.type == value_type::array);
+    auto& array = wrapped_value.array;
+    return value::array_iterator(array.begin());
+  }
+  value::array_iterator array_value::end() {
+    assert(wrapped_value.type == value_type::array);
+    auto& array = wrapped_value.array;
+    return value::array_iterator(array.end());
+  }
+
+  object_value::object_value(value& _value) : wrapped_value(_value) {}
+  object_value::object_value(object_value&& other) : wrapped_value(other.wrapped_value) {} // Not `move` per se
+  object_value& object_value::operator=(object_value&& other) {
+    wrapped_value = other.wrapped_value;
+    return *this;
+  }
+
+  bool   object_value::has(const std::string& key) const {
+    assert(wrapped_value.type == value_type::object);
+    auto& object = wrapped_value.object;
+    return object.find(key) != object.end();
+  }
+  value& object_value::operator[](const std::string& key) {
+    assert(wrapped_value.type == value_type::object);
+    auto& object = wrapped_value.object;
+    auto element = object.emplace(key, std::make_unique<value>());
+    return *(element.first->second);
+  }
+  void   object_value::remove(const std::string& key) {
+    assert(wrapped_value.type == value_type::object);
+    auto& object = wrapped_value.object;
+    object.erase(key);
+  }
+  size_t object_value::size() const {
+    assert(wrapped_value.type == value_type::object);
+    auto& object = wrapped_value.object;
+    return object.size();
+  }
+  bool   object_value::empty() const {
+    assert(wrapped_value.type == value_type::object);
+    auto& object = wrapped_value.object;
+    return object.empty();
+  }
+  value::object_iterator object_value::begin() {
+    assert(wrapped_value.type == value_type::object);
+    auto& object = wrapped_value.object;
+    return value::object_iterator(object.begin());
+  }
+  value::object_iterator object_value::end() {
+    assert(wrapped_value.type == value_type::object);
+    auto& object = wrapped_value.object;
+    return value::object_iterator(object.end());
   }
 }

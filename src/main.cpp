@@ -12,9 +12,10 @@ int main(int argc, char* args[]) {
   try {
     std::ifstream ifile(args[1], std::ios::in);
     json::value input = json::parser::parse(ifile);
+    json::array_value top_level_array = input.as_array();
 
-    for (auto it = input.abegin(); it != input.aend(); ++it) {
-      std::cout << (*it)["_id"].as_string() << "\n";
+    for (auto& it : top_level_array) {
+      std::cout << it["_id"].as_string() << "\n";
     }
   } catch (const json::json_error& err) {
     std::cerr << err.what() << "\n";

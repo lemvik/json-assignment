@@ -21,6 +21,10 @@ namespace json {
     json_error(const std::string& reason) : std::runtime_error(reason) {}
   };
 
+  // Forward declarations for array_value and object_value
+  class array_value;
+  class object_value;
+
   // The structure that encapsulates JSON value. Relies on runtime checks to
   // check validity of operations. Have two proxies - for objects and for arrays operations.
   struct value {
@@ -105,8 +109,6 @@ namespace json {
       std::unordered_map<std::string, std::unique_ptr<value>>::const_iterator source;
       mutable std::unique_ptr<object_entry> value_reference;
     };
-    object_iterator begin() const;
-    object_iterator end() const;
 
     // Array-related stuff
 
@@ -131,15 +133,21 @@ namespace json {
     private:
       std::vector<std::unique_ptr<value>>::const_iterator source;
     };
-    array_iterator abegin();
-    array_iterator aend();
 
     // For object and arrays returns the number of entries.
-    size_t size() const; 
+    size_t size() const;
     // Returns true if object/array is empty
-    bool empty() const; 
+    bool empty() const;
 
-    friend void swap(value& lhs, value& rhs);  
+    friend void swap(value& lhs, value& rhs);
+    friend class array_value;
+    friend class object_value;
+
+    // Following two methods return views to this value that is only
+    // valid while the value exists. This allows us to avoid copy and have
+    // these objects cost little.
+    array_value  as_array();
+    object_value as_object();
   private:
     // Populates this instance from another one.
     void from(const value&);
@@ -154,6 +162,64 @@ namespace json {
       std::unordered_map<std::string, std::unique_ptr<value>> object;
       std::vector<std::unique_ptr<value>>                     array;
     };
+  };
+
+  // This class provides array-specific interface to aleviate some runtime checks and provide compatibility
+  // with STL. This is actually a facade for plain value, but with runtime checks removed and more appropriate method names.
+  // The lifetime of the array_value is the same as of the value it was constructed with.
+  // NOTE: this wrapper becomes invalidated if underlying value changes it's type. This is checked via
+  // assertions and can fail unpredictably in release builds.
+  class array_value {
+    value& wrapped_value;
+    array_value(value& _value);
+    friend struct value;
+
+    // Copies are prohibited because we want to
+    // avoid creating copies that are hard to track and prone to
+    // leave dangling references if wrapped value goes away.
+    array_value(const array_value&)            = delete;
+    array_value& operator=(const array_value&) = delete;
+  public:
+    // Moves are allowed to facilitate returning from methods and passing into them
+    array_value(array_value&&);
+    array_value& operator=(array_value&&);
+    // Docs for methods below are the same as for value methods.
+    value& operator[](size_t);
+    size_t push(value);
+    size_t remove(size_t);
+    size_t size() const;
+    bool   empty() const;
+    value::array_iterator begin();
+    value::array_iterator end();
+  };
+
+  // This class provides object-specific interface to aleviate some runtime checks and provide compatibility
+  // with STL. This is actually a facade for plain value, but with runtime checks removed and more appropriate method names.
+  // The lifetime of the object_value is the same as of the value it was constructed with.
+  // NOTE: this wrapper becomes invalidated if underlying value changes it's type. This is checked via
+  // assertions and can fail unpredictably in release builds.
+  class object_value {
+    value& wrapped_value;
+    object_value(value& _value);
+    friend struct value;
+
+    // Copy and moves are prohibited because we want to
+    // avoid creating copies that are hard to track and prone to
+    // leave dangling references if wrapped value goes away.
+    object_value(const object_value&)            = delete;
+    object_value& operator=(const object_value&) = delete;
+  public:
+    // Moves are allowed to facilitate returning from methods and passing into them
+    object_value(object_value&&);
+    object_value& operator=(object_value&&);
+    // Docs for methods below are the same as for value methods.
+    bool   has(const std::string&) const;
+    value& operator[](const std::string&);
+    void   remove(const std::string&);
+    size_t size() const;
+    bool   empty() const;
+    value::object_iterator begin();
+    value::object_iterator end();
   };
 
   // Overload for outputting to stream (internally works via serialize).
