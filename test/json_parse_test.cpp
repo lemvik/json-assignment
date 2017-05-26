@@ -40,6 +40,14 @@ BOOST_AUTO_TEST_CASE(ParseAndWriteBoolean) {
   BOOST_CHECK_EQUAL("false", false_node.serialize());
 }
 
+BOOST_AUTO_TEST_CASE(ParseEmptyObject) {
+  auto node = json::parser::parse("{}");
+
+  BOOST_CHECK_EQUAL(json::value_type::object, node.get_type());
+  BOOST_CHECK_EQUAL(0, node.size());
+  BOOST_CHECK_EQUAL("{}", node.serialize());
+}
+
 BOOST_AUTO_TEST_CASE(ParseAndWriteSimpleObject) {
   auto node = json::parser::parse("{\"key\":\"value\"}");
 
@@ -56,6 +64,14 @@ BOOST_AUTO_TEST_CASE(ParseAndWriteComplexObject) {
   BOOST_CHECK_EQUAL(json::value_type::object, node["key"].get_type());
   BOOST_CHECK_EQUAL(1, node["key"]["subkey"].as_number());
   BOOST_CHECK_EQUAL("{\"key\":{\"subkey\":1}}", node.serialize());
+}
+
+BOOST_AUTO_TEST_CASE(ParseEmptyArray) {
+  auto node = json::parser::parse("[]");
+
+  BOOST_CHECK_EQUAL(json::value_type::array, node.get_type());
+  BOOST_CHECK_EQUAL(0, node.size());
+  BOOST_CHECK_EQUAL("[]", node.serialize());
 }
 
 BOOST_AUTO_TEST_CASE(ParseSimpleArray) {
@@ -82,6 +98,10 @@ BOOST_AUTO_TEST_CASE(ParseAndWriteArrayObject) {
 }
 
 BOOST_AUTO_TEST_CASE(ParseFailures) {
+  BOOST_CHECK_THROW(json::parser::parse("{,}"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("{\"key\":1,}"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("[,]"), json::json_error);
+  BOOST_CHECK_THROW(json::parser::parse("[1,]"), json::json_error);
   BOOST_CHECK_THROW(json::parser::parse("{{\"key\""), json::json_error);
   BOOST_CHECK_THROW(json::parser::parse("[[\"key\""), json::json_error);
   BOOST_CHECK_THROW(json::parser::parse("[}"), json::json_error);
