@@ -90,7 +90,7 @@ namespace json {
     // Returns true if object contains a key.
     bool has(const std::string&) const;
     // Returns reference to value stored in given key. Mimics the behaviour of std::unordered_map[key]
-    // in that it returns either a stored value or associates default value with key and returns that.
+    // in that it returns either a reference to the stored value or associates default value with key and returns reference to that.
     value& operator[](const std::string&);
     // Removed key association from object. If no key exists - does nothing.
     void remove(const std::string&);

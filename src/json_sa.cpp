@@ -12,10 +12,10 @@
 namespace json {
   namespace simple {
 
-    // Parser error - not visible to outside world, used to convey information about 
-    // parsing failure.
-    struct parser_error : public std::runtime_error {
-      parser_error(const std::string reason) : std::runtime_error(reason) {}
+    // Tokenizer error - not visible to outside world, used to convey information about 
+    // tokenizing failure.
+    struct tokenizer_error : public std::runtime_error {
+      tokenizer_error(const std::string reason) : std::runtime_error(reason) {}
     };
 
     // Tries to consume given literal from given stream.
@@ -33,7 +33,7 @@ namespace json {
       }
 
       if (!is || i != len) {
-        throw parser_error("Failed to read [literal=" + literal + "][stream_state=" + utils::to_string((bool)is) + "][read=" + utils::to_string(i) + "]");
+        throw tokenizer_error("Failed to read [literal=" + literal + "][stream_state=" + utils::to_string((bool)is) + "][read=" + utils::to_string(i) + "]");
       }
     }
 
@@ -51,7 +51,7 @@ namespace json {
         is >> c;
         if (!is) {
           is.flags(in_flags);
-          throw parser_error("Failed to read string due to a stream error.");
+          throw tokenizer_error("Failed to read string due to a stream error.");
         }
 
         if (c == '"' && !escaped) {
@@ -65,7 +65,7 @@ namespace json {
       
       is.flags(in_flags);
 
-      throw parser_error("Failed to read string: unterminated string encountered.");
+      throw tokenizer_error("Failed to read string: unterminated string encountered.");
     }
 
     // Reads JSON number. As per JSON spec (json.org) numbers should have . as their decimal
@@ -78,7 +78,7 @@ namespace json {
       is >> val;
       is.imbue(original_locale);
       if (!is) {
-        throw parser_error("Failed to read number due to a stream error.");
+        throw tokenizer_error("Failed to read number due to a stream error.");
       }
       return val; 
     }
@@ -126,7 +126,7 @@ namespace json {
             read_literal(is, null_literal);
             callback.json_null();
             break;
-          } catch (const parser_error& error) {
+          } catch (const tokenizer_error& error) {
             callback.json_error(error.what());
             return; // Return here and below because we cannot rely on callback.neet_more_json() to return false
                     // even after error and is could be readable
@@ -136,7 +136,7 @@ namespace json {
             read_literal(is, true_literal);
             callback.json_boolean(true);
             break;
-          } catch (const parser_error& error) {
+          } catch (const tokenizer_error& error) {
             callback.json_error(error.what());
             return;
           }
@@ -145,7 +145,7 @@ namespace json {
             read_literal(is, false_literal);
             callback.json_boolean(false);
             break;
-          } catch (const parser_error& error) {
+          } catch (const tokenizer_error& error) {
             callback.json_error(error.what());
             return;
           }
@@ -178,7 +178,7 @@ namespace json {
           try {
             callback.json_string(read_string(is));
             break;
-          } catch (const parser_error& error) {
+          } catch (const tokenizer_error& error) {
             callback.json_error(error.what());
             return;
           }
@@ -187,7 +187,7 @@ namespace json {
             try {
               callback.json_number(read_number(is));
               break;
-            } catch (const parser_error& error) {
+            } catch (const tokenizer_error& error) {
               callback.json_error(error.what());
               return;
             }
